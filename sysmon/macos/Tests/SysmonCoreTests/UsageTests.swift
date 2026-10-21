@@ -173,3 +173,90 @@ private func iso(_ s: String) -> Date {
     try Data(UsageFixtures.codexAuth.utf8).write(to: dir.appendingPathComponent("auth.json"))
     #expect(readCodexCredential(home: home)?.accountID == "00000000-0000-0000-0000-000000000000")
 }
+
+// MARK: - 页面轮换与 P/U/TAP 协议行
+
+private let shanghai: Calendar = {
+    var c = Calendar(identifier: .gregorian)
+    c.timeZone = TimeZone(identifier: "Asia/Shanghai")!
+    return c
+}()
+
+/// 2026-10-21 12:00:00 Asia/Shanghai，周三
+private let protoNow = shanghai.date(from: DateComponents(year: 2026, month: 10, day: 21, hour: 12))!
+
+@Test func pageCycle() {
+    let all = enabledPages(claude: true, chatgpt: true)
+    #expect(all == [.sys, .claude, .chatgpt])
+    #expect(nextPage(after: .sys, enabled: all) == .claude)
+    #expect(nextPage(after: .chatgpt, enabled: all) == .sys)
+    let noClaude = enabledPages(claude: false, chatgpt: true)
+    #expect(nextPage(after: .sys, enabled: noClaude) == .chatgpt)
+    #expect(nextPage(after: .sys, enabled: [.sys]) == .sys)
+    #expect(resolvePage(.claude, enabled: noClaude) == .sys)
+}
+
+@Test func encodesPageLine() {
+    #expect(encodePage(.claude, enabled: [.sys, .claude, .chatgpt]) == "P cl i=2 n=3\n")
+    #expect(encodePage(.sys, enabled: [.sys]) == "P sys i=1 n=1\n")
+}
+
+@Test func encodesUsageLine() {
+    let thursday = shanghai.date(from: DateComponents(year: 2026, month: 10, day: 22, hour: 14))!
+    let snap = UsageSnapshot(
+        plan: "max",
+        fiveHour: UsageWindow(percent: 42, resetsAt: protoNow.addingTimeInterval(7980)),
+        week: UsageWindow(percent: 67, resetsAt: thursday),
+        opus: UsageWindow(percent: 12, resetsAt: thursday),
+        sonnet: UsageWindow(percent: 28, resetsAt: thursday),
+        fetchedAt: protoNow.addingTimeInterval(-60))
+    let line = encodeUsage(.claude, status: .ok, snapshot: snap, now: protoNow, calendar: shanghai)
+    #expect(line == "U svc=cl st=ok age=60 plan=max h5=42 h5r=7980 wk=67 wkd=4 wkt=1400 op=12 so=28\n")
+    #expect(line.utf8.count <= 128)
+}
+
+@Test func usageWindowPastResetEncodesMinusOne() {
+    let past = protoNow.addingTimeInterval(-10)
+    let snap = UsageSnapshot(
+        plan: "plus",
+        fiveHour: UsageWindow(percent: 90, resetsAt: past),
+        week: UsageWindow(percent: 50, resetsAt: past),
+        fetchedAt: protoNow)
+    let line = encodeUsage(.chatgpt, status: .ok, snapshot: snap, now: protoNow, calendar: shanghai)
+    #expect(line.contains(" h5=-1") && !line.contains("h5r=") && line.contains(" wk=-1") && !line.contains("wkd="))
+    #expect(!line.contains("wkt="))
+}
+
+@Test func usageWithoutSnapshotHasNoNumbers() {
+    #expect(encodeUsage(.claude, status: .expired, snapshot: nil, now: protoNow, calendar: shanghai) == "U svc=cl st=exp\n")
+}
+
+@Test func usageOmitsMissingFields() {
+    let snap = UsageSnapshot(
+        plan: nil,
+        fiveHour: UsageWindow(percent: 10, resetsAt: protoNow.addingTimeInterval(60)),
+        week: nil,
+        opus: nil,
+        sonnet: UsageWindow(percent: 28, resetsAt: nil),
+        fetchedAt: protoNow)
+    let line = encodeUsage(.claude, status: .ok, snapshot: snap, now: protoNow, calendar: shanghai)
+    #expect(line == "U svc=cl st=ok age=0 h5=10 h5r=60 so=28\n")
+    #expect(!line.contains("op=") && !line.contains("plan=") && !line.contains("wk="))
+}
+
+@Test func usagePlanIsSanitized() {
+    let snap = UsageSnapshot(plan: "Max-20x_Team Plus!", fetchedAt: protoNow)
+    let line = encodeUsage(.claude, status: .ok, snapshot: snap, now: protoNow, calendar: shanghai)
+    // 只留小写字母数字，最多 10 个字符（大写字母被丢弃）
+    #expect(line == "U svc=cl st=ok age=0 plan=ax20xeamlu\n")
+    let empty = UsageSnapshot(plan: "---", fetchedAt: protoNow)
+    #expect(!encodeUsage(.claude, status: .ok, snapshot: empty, now: protoNow, calendar: shanghai).contains("plan="))
+}
+
+@Test func tapLineIsExact() {
+    #expect(isTapLine("TAP"))
+    #expect(isTapLine("TAP\r"))
+    #expect(!isTapLine("xTAP"))
+    #expect(!isTapLine("TAPx"))
+    #expect(!isTapLine("rst:0x1 TAP"))
+}
