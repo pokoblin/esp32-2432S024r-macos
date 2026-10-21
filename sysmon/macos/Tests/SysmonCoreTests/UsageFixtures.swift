@@ -1,41 +1,154 @@
-// TODO 用真实响应核对：claude / claudeNulls 目前是按设计文档预计的格式手写的，
-// 因为抓取时钥匙串里的 Claude 凭据已过期，拿不到真实响应。Task 11 里补做核对。
-//
 // 用量接口的测试夹具。
+// - claude：2026-10-21 对 api.anthropic.com/api/oauth/usage 的真实响应，原样保留
+//   （响应里没有账号标识，无需脱敏）。该账号的 seven_day_opus / seven_day_sonnet 都是 null。
+// - claudeNulls：在 claude 的基础上手工改的：seven_day_opus 为 null，
+//   seven_day_sonnet 有 utilization 但 resets_at 为 null，用来覆盖解析器对这两种空值的处理。
 // - codex：2026-10-21 对 chatgpt.com/backend-api/wham/usage 的真实响应，
 //   邮箱、user_id、account_id 已替换成占位符，其余结构和数值保持原样。
-// - claude / claudeNulls：见上面的 TODO，手写的预计格式（utilization 为 0–100 的浮点数，
-//   resets_at 为 ISO8601 字符串）。claudeNulls 里 seven_day_opus 为 null，
-//   seven_day_sonnet.resets_at 为 null。
 // - claudeKeychain / codexAuth：凭据文件的结构，里面全是假值，不含任何真实令牌。
 
 enum UsageFixtures {
-    /// GET api.anthropic.com/api/oauth/usage
+    /// GET api.anthropic.com/api/oauth/usage（真实响应）
     static let claude = #"""
 {
   "five_hour": {
-    "utilization": 37.0,
-    "resets_at": "2026-10-21T14:00:00.123456+00:00"
+    "utilization": 8.0,
+    "resets_at": "2026-10-21T09:09:59.555360+00:00",
+    "limit_dollars": null,
+    "used_dollars": null,
+    "remaining_dollars": null,
+    "locked_reason": null
   },
   "seven_day": {
-    "utilization": 12.0,
-    "resets_at": "2026-10-23T06:00:00.123456+00:00"
+    "utilization": 23.0,
+    "resets_at": "2026-10-24T11:59:59.555385+00:00",
+    "limit_dollars": null,
+    "used_dollars": null,
+    "remaining_dollars": null,
+    "locked_reason": null
   },
   "seven_day_oauth_apps": null,
-  "seven_day_opus": {
-    "utilization": 5.0,
-    "resets_at": "2026-10-23T06:00:00.123456+00:00"
-  },
-  "seven_day_sonnet": {
-    "utilization": 8.0,
-    "resets_at": "2026-10-23T06:00:00.123456+00:00"
-  },
+  "seven_day_opus": null,
+  "seven_day_sonnet": null,
+  "seven_day_cowork": null,
+  "seven_day_omelette": null,
+  "tangelo": null,
+  "iguana_necktie": null,
+  "omelette_promotional": null,
+  "nimbus_quill": null,
+  "cinder_cove": null,
+  "copper_kite": null,
+  "brass_thimble": null,
+  "harbor_lantern": null,
+  "wattle_ember": null,
+  "amber_ladder": null,
+  "granite_teacup": null,
+  "amber_cistern": null,
+  "juniper_tide": null,
+  "cedar_ember": null,
+  "starry_waterfall": null,
+  "amber_gauge": null,
   "extra_usage": {
     "is_enabled": false,
     "monthly_limit": null,
     "used_credits": null,
-    "utilization": null
-  }
+    "utilization": null,
+    "currency": null,
+    "decimal_places": null,
+    "disabled_reason": null,
+    "user_disabled": false,
+    "spend_limit_reached": false,
+    "credits_ever_enabled": false,
+    "daily": null,
+    "weekly": null
+  },
+  "limits": [
+    {
+      "kind": "session",
+      "group": "session",
+      "percent": 8,
+      "severity": "normal",
+      "resets_at": "2026-10-21T09:09:59.555360+00:00",
+      "scope": null,
+      "is_active": false
+    },
+    {
+      "kind": "weekly_all",
+      "group": "weekly",
+      "percent": 23,
+      "severity": "normal",
+      "resets_at": "2026-10-24T11:59:59.555385+00:00",
+      "scope": null,
+      "is_active": true
+    },
+    {
+      "kind": "weekly_scoped",
+      "group": "weekly",
+      "percent": 0,
+      "severity": "normal",
+      "resets_at": "2026-10-24T12:00:00+00:00",
+      "scope": {
+        "model": {
+          "id": null,
+          "display_name": "Fable"
+        },
+        "surface": null
+      },
+      "is_active": false
+    }
+  ],
+  "spend": {
+    "used": {
+      "amount_minor": 0,
+      "currency": "USD",
+      "exponent": 2
+    },
+    "limit": null,
+    "percent": 0,
+    "severity": "normal",
+    "enabled": false,
+    "disabled_reason": null,
+    "cap": null,
+    "balance": null,
+    "auto_reload": null,
+    "disclaimer": "Usage credits cover you when you hit your plan limits. [Learn more](https://support.claude.com/articles/12429409)",
+    "can_purchase_credits": false,
+    "can_toggle": false
+  },
+  "member_dashboard_available": false,
+  "seven_day_breakdown": {
+    "as_of": "2026-10-21T07:19:05.592063+00:00",
+    "window_started_at": "2026-10-17T11:59:59.555385+00:00",
+    "rows": [
+      {
+        "key": "claude_code",
+        "display_name": "Claude Code",
+        "percent": 100
+      },
+      {
+        "key": "chat",
+        "display_name": "Chats",
+        "percent": 0
+      },
+      {
+        "key": "cowork",
+        "display_name": "Cowork",
+        "percent": 0
+      },
+      {
+        "key": "other",
+        "display_name": "Other",
+        "percent": 0
+      }
+    ]
+  },
+  "weekly_scoped_shares": [
+    {
+      "limit_index": 2,
+      "used_percent_of_weekly": 0,
+      "allowance_percent_of_weekly": 50
+    }
+  ]
 }
 """#
 
@@ -43,25 +156,146 @@ enum UsageFixtures {
     static let claudeNulls = #"""
 {
   "five_hour": {
-    "utilization": 37.0,
-    "resets_at": "2026-10-21T14:00:00.123456+00:00"
+    "utilization": 8.0,
+    "resets_at": "2026-10-21T09:09:59.555360+00:00",
+    "limit_dollars": null,
+    "used_dollars": null,
+    "remaining_dollars": null,
+    "locked_reason": null
   },
   "seven_day": {
-    "utilization": 12.0,
-    "resets_at": "2026-10-23T06:00:00.123456+00:00"
+    "utilization": 23.0,
+    "resets_at": "2026-10-24T11:59:59.555385+00:00",
+    "limit_dollars": null,
+    "used_dollars": null,
+    "remaining_dollars": null,
+    "locked_reason": null
   },
   "seven_day_oauth_apps": null,
   "seven_day_opus": null,
   "seven_day_sonnet": {
-    "utilization": 8.0,
+    "utilization": 23.0,
     "resets_at": null
   },
+  "seven_day_cowork": null,
+  "seven_day_omelette": null,
+  "tangelo": null,
+  "iguana_necktie": null,
+  "omelette_promotional": null,
+  "nimbus_quill": null,
+  "cinder_cove": null,
+  "copper_kite": null,
+  "brass_thimble": null,
+  "harbor_lantern": null,
+  "wattle_ember": null,
+  "amber_ladder": null,
+  "granite_teacup": null,
+  "amber_cistern": null,
+  "juniper_tide": null,
+  "cedar_ember": null,
+  "starry_waterfall": null,
+  "amber_gauge": null,
   "extra_usage": {
     "is_enabled": false,
     "monthly_limit": null,
     "used_credits": null,
-    "utilization": null
-  }
+    "utilization": null,
+    "currency": null,
+    "decimal_places": null,
+    "disabled_reason": null,
+    "user_disabled": false,
+    "spend_limit_reached": false,
+    "credits_ever_enabled": false,
+    "daily": null,
+    "weekly": null
+  },
+  "limits": [
+    {
+      "kind": "session",
+      "group": "session",
+      "percent": 8,
+      "severity": "normal",
+      "resets_at": "2026-10-21T09:09:59.555360+00:00",
+      "scope": null,
+      "is_active": false
+    },
+    {
+      "kind": "weekly_all",
+      "group": "weekly",
+      "percent": 23,
+      "severity": "normal",
+      "resets_at": "2026-10-24T11:59:59.555385+00:00",
+      "scope": null,
+      "is_active": true
+    },
+    {
+      "kind": "weekly_scoped",
+      "group": "weekly",
+      "percent": 0,
+      "severity": "normal",
+      "resets_at": "2026-10-24T12:00:00+00:00",
+      "scope": {
+        "model": {
+          "id": null,
+          "display_name": "Fable"
+        },
+        "surface": null
+      },
+      "is_active": false
+    }
+  ],
+  "spend": {
+    "used": {
+      "amount_minor": 0,
+      "currency": "USD",
+      "exponent": 2
+    },
+    "limit": null,
+    "percent": 0,
+    "severity": "normal",
+    "enabled": false,
+    "disabled_reason": null,
+    "cap": null,
+    "balance": null,
+    "auto_reload": null,
+    "disclaimer": "Usage credits cover you when you hit your plan limits. [Learn more](https://support.claude.com/articles/12429409)",
+    "can_purchase_credits": false,
+    "can_toggle": false
+  },
+  "member_dashboard_available": false,
+  "seven_day_breakdown": {
+    "as_of": "2026-10-21T07:19:05.592063+00:00",
+    "window_started_at": "2026-10-17T11:59:59.555385+00:00",
+    "rows": [
+      {
+        "key": "claude_code",
+        "display_name": "Claude Code",
+        "percent": 100
+      },
+      {
+        "key": "chat",
+        "display_name": "Chats",
+        "percent": 0
+      },
+      {
+        "key": "cowork",
+        "display_name": "Cowork",
+        "percent": 0
+      },
+      {
+        "key": "other",
+        "display_name": "Other",
+        "percent": 0
+      }
+    ]
+  },
+  "weekly_scoped_shares": [
+    {
+      "limit_index": 2,
+      "used_percent_of_weekly": 0,
+      "allowance_percent_of_weekly": 50
+    }
+  ]
 }
 """#
 

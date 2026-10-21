@@ -10,25 +10,34 @@ private func iso(_ s: String) -> Date {
 
 @Test func parsesClaudeUsage() throws {
     let s = try parseClaudeUsage(Data(UsageFixtures.claude.utf8), plan: "max", now: .init(timeIntervalSince1970: 0))
-    #expect(s.fiveHour?.percent == 37)
-    #expect(s.week?.percent == 12)
-    #expect(s.opus?.percent == 5)
-    #expect(s.sonnet?.percent == 8)
-    #expect(s.fiveHour?.resetsAt != nil)
+    #expect(s.fiveHour?.percent == 8)
+    #expect(s.week?.percent == 23)
+    // 真实响应里这个账号没有 Opus / Sonnet 单独的额度
+    #expect(s.opus == nil && s.sonnet == nil)
     // 小数秒被舍弃前后的差别不超过 1 秒
     let reset = try #require(s.fiveHour?.resetsAt)
-    #expect(abs(reset.timeIntervalSince(iso("2026-10-21T14:00:00Z"))) < 1)
+    #expect(abs(reset.timeIntervalSince(iso("2026-10-21T09:09:59Z"))) < 1)
+    let weekReset = try #require(s.week?.resetsAt)
+    #expect(abs(weekReset.timeIntervalSince(iso("2026-10-24T11:59:59Z"))) < 1)
     #expect(s.fiveHour?.minutes == 300 && s.week?.minutes == 10080)
-    #expect(s.opus?.minutes == 10080 && s.sonnet?.minutes == 10080)
     #expect(s.plan == "max")
     #expect(s.fetchedAt == Date(timeIntervalSince1970: 0))
+}
+
+@Test func parsesClaudeOpusAndSonnetWindows() throws {
+    let json = #"{"five_hour":{"utilization":10,"resets_at":"2026-10-21T14:00:00+00:00"},"seven_day":{"utilization":20,"resets_at":"2026-10-23T06:00:00+00:00"},"seven_day_opus":{"utilization":5.0,"resets_at":"2026-10-23T06:00:00+00:00"},"seven_day_sonnet":{"utilization":8.4,"resets_at":"2026-10-23T06:00:00+00:00"}}"#
+    let s = try parseClaudeUsage(Data(json.utf8), plan: nil, now: .init(timeIntervalSince1970: 0))
+    #expect(s.opus?.percent == 5)
+    #expect(s.sonnet?.percent == 8)
+    #expect(s.opus?.minutes == 10080 && s.sonnet?.minutes == 10080)
+    #expect(s.opus?.resetsAt == iso("2026-10-23T06:00:00Z"))
 }
 
 @Test func claudeNullWindowsAreOmitted() throws {
     let s = try parseClaudeUsage(Data(UsageFixtures.claudeNulls.utf8), plan: nil, now: .init(timeIntervalSince1970: 0))
     #expect(s.opus == nil)
     #expect(s.sonnet != nil && s.sonnet?.resetsAt == nil)
-    #expect(s.sonnet?.percent == 8)
+    #expect(s.sonnet?.percent == 23)
     #expect(s.plan == nil)
 }
 
