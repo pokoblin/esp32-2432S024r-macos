@@ -1,5 +1,4 @@
 import SwiftUI
-import SysmonCore
 
 @main
 struct SysmonApp: App {
