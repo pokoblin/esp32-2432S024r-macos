@@ -1,9 +1,12 @@
 #include <unity.h>
 #include <string.h>
 
+#include "format.h"
+#include "history.h"
 #include "line_reader.h"
 #include "protocol.h"
 #include "screen_state.h"
+#include "tones.h"
 
 using namespace sysmon;
 
@@ -121,6 +124,66 @@ static void test_screen_state_millis_wrap() {
   TEST_ASSERT_TRUE(st.lit(0x00000100u));
 }
 
+// ---- history ----
+
+static void test_history_rollover() {
+  History h;
+  for (uint32_t i = 1; i <= 151; ++i) h.push(i, 0);
+  TEST_ASSERT_EQUAL(150, h.size());
+  TEST_ASSERT_EQUAL_UINT32(2, h.rxAt(0));
+  TEST_ASSERT_EQUAL_UINT32(151, h.rxAt(149));
+}
+
+static void test_history_peak_after_evict() {
+  History h;
+  h.push(1000, 0);
+  for (int i = 0; i < 150; ++i) h.push(5, 7);
+  TEST_ASSERT_EQUAL_UINT32(7, h.peak());
+  TEST_ASSERT_EQUAL_UINT32(7, h.txAt(149));
+}
+
+static void test_history_empty_peak() {
+  History h;
+  TEST_ASSERT_EQUAL_UINT32(0, h.peak());
+  TEST_ASSERT_EQUAL(0, h.size());
+  h.push(9, 9);
+  h.clear();
+  TEST_ASSERT_EQUAL_UINT32(0, h.peak());
+  TEST_ASSERT_EQUAL(0, h.size());
+}
+
+// ---- format ----
+
+static void assertRate(uint32_t bps, const char* num, const char* unit) {
+  char buf[16];
+  const char* u = formatRate(bps, buf, sizeof(buf));
+  TEST_ASSERT_EQUAL_STRING(num, buf);
+  TEST_ASSERT_EQUAL_STRING(unit, u);
+}
+
+static void test_format_rate() {
+  assertRate(0, "0", "B/s");
+  assertRate(999, "999", "B/s");
+  assertRate(1000, "0.98", "KB/s");
+  assertRate(880640, "860", "KB/s");
+  assertRate(13002342, "12.4", "MB/s");
+  assertRate(157286400, "150", "MB/s");
+}
+
+// ---- tones ----
+
+static void test_tones() {
+  TEST_ASSERT_EQUAL(Tone::Green, cpuTone(49));
+  TEST_ASSERT_EQUAL(Tone::Yellow, cpuTone(50));
+  TEST_ASSERT_EQUAL(Tone::Yellow, cpuTone(79));
+  TEST_ASSERT_EQUAL(Tone::Red, cpuTone(80));
+  TEST_ASSERT_EQUAL(Tone::Green, memTone(1));
+  TEST_ASSERT_EQUAL(Tone::Yellow, memTone(2));
+  TEST_ASSERT_EQUAL(Tone::Red, memTone(4));
+  TEST_ASSERT_EQUAL(Tone::Green, memTone(3));
+  TEST_ASSERT_EQUAL(Tone::Green, memTone(0));
+}
+
 int main(int, char**) {
   UNITY_BEGIN();
   RUN_TEST(test_parse_full_line);
@@ -136,5 +199,10 @@ int main(int, char**) {
   RUN_TEST(test_screen_state_off_then_resume);
   RUN_TEST(test_screen_state_stale);
   RUN_TEST(test_screen_state_millis_wrap);
+  RUN_TEST(test_history_rollover);
+  RUN_TEST(test_history_peak_after_evict);
+  RUN_TEST(test_history_empty_peak);
+  RUN_TEST(test_format_rate);
+  RUN_TEST(test_tones);
   return UNITY_END();
 }
