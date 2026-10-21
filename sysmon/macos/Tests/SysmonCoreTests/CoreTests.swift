@@ -62,11 +62,16 @@ import Testing
     #expect(r2?.tx == 0)
 }
 
-@Test func deviceChoice() {
-    #expect(pickSerialDevice(from: ["cu.Bluetooth-Incoming-Port", "cu.usbserial-114110", "cu.debug-console"])
-        == "/dev/cu.usbserial-114110")
-    #expect(pickSerialDevice(from: []) == nil)
-    #expect(pickSerialDevice(from: ["cu.wchusbserial1410"]) == "/dev/cu.wchusbserial1410")
+@Test func boardCandidatesOnlyWCH() {
+    let devices = [
+        SerialDevice(path: "/dev/cu.usbserial-A10K", vendorID: 0x0403),  // FTDI
+        SerialDevice(path: "/dev/cu.usbserial-114110", vendorID: 0x1a86),
+        SerialDevice(path: "/dev/cu.Bluetooth-Incoming-Port", vendorID: nil),
+        SerialDevice(path: "/dev/cu.usbserial-110", vendorID: 0x1a86),
+    ]
+    #expect(boardCandidates(devices) == ["/dev/cu.usbserial-110", "/dev/cu.usbserial-114110"])
+    #expect(boardCandidates([SerialDevice(path: "/dev/cu.usbserial-A10K", vendorID: 0x0403)]).isEmpty)
+    #expect(boardCandidates([]).isEmpty)
 }
 
 @Test func displayGate() {

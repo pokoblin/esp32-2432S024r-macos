@@ -2,30 +2,34 @@ import AppKit
 import ServiceManagement
 import SysmonCore
 
-/// 每 2 秒采集一次 CPU / 内存压力 / 网速，通过串口发给副屏。
+/// 菜单里的数值摘要单独放一个对象：它每 2 秒变一次，只该刷新菜单内容，
+/// 不该牵动菜单栏图标所在的 scene。
+@MainActor
+final class SummaryModel: ObservableObject {
+    @Published var text = "等待数据…"
+}
+
+/// 每 2 秒采集一次 CPU / 内存压力 / 网速，更新菜单摘要，连上板子时通过串口发给副屏。
 /// 显示器睡眠、锁屏、切换用户或系统睡眠时发 OFF 并暂停；串口断开后每次触发时自动重连。
 @MainActor
 final class MonitorController: ObservableObject {
     @Published private(set) var portPath: String?
-    @Published private(set) var summary = "等待数据…"
     @Published private(set) var launchAtLogin = false
+    let summary = SummaryModel()
 
     private static let interval: TimeInterval = 2
 
     private var port: SerialPort?
     private var gate = DisplayGate()
-    private var rateMeter = RateMeter()
-    private var lastCPU: CPUTicks?
-    private var lastTime: TimeInterval?
+    private var sampler = MetricsSampler()
     private var timer: Timer?
-    // 菜单栏程序常驻后台，不持有这个 activity 的话定时器会被 App Nap 拖慢
+    // 工作时持有，防止 App Nap 拖慢定时器；暂停期间释放
     private var activity: NSObjectProtocol?
     private var observers: [(NotificationCenter, NSObjectProtocol)] = []
 
     init() {
         launchAtLogin = SMAppService.mainApp.status == .enabled
-        activity = ProcessInfo.processInfo.beginActivity(
-            options: .userInitiatedAllowingIdleSystemSleep, reason: "Send system stats to the ESP32 screen")
+        setActivity(true)
         observeSystemEvents()
 
         let timer = Timer(timeInterval: Self.interval, repeats: true) { [weak self] _ in
@@ -55,49 +59,43 @@ final class MonitorController: ObservableObject {
     private func tick() {
         guard gate.active else { return }
         if port == nil { connect() }
-        guard let port else { return }
 
-        let now = ProcessInfo.processInfo.systemUptime
-        let ticks = readCPUTicks()
-        let counters = readPhysicalCounters()
-        let elapsed = lastTime.map { now - $0 } ?? 0
-        let cpu = zip(lastCPU, ticks).map { cpuPercent(prev: $0, cur: $1) }
-        lastTime = now
-        lastCPU = ticks
-
-        // 第一次只建立基线，下一次才有速率和 CPU 差值
-        guard let rates = rateMeter.update(counters, elapsed: elapsed),
-              let cpu, let mem = readMemoryPressure() else { return }
-
-        let sample = Sample(cpu: cpu, mem: mem.percent, level: mem.level, rx: rates.rx, tx: rates.tx)
-        summary = "CPU \(cpu)% · 内存压力 \(mem.percent)% · ↓\(rateText(rates.rx)) ↑\(rateText(rates.tx))"
-        if !port.write(encodeSample(sample)) { disconnect() }
+        guard let sample = sampler.sample(cpu: readCPUTicks(), counters: readPhysicalCounters(),
+                                          memory: readMemoryPressure(),
+                                          now: ProcessInfo.processInfo.systemUptime) else { return }
+        summary.text = "CPU \(sample.cpu)% · 内存压力 \(sample.mem)% · ↓\(rateText(sample.rx)) ↑\(rateText(sample.tx))"
+        if let port, !port.write(encodeSample(sample)) { disconnect() }
     }
 
+    /// 依次尝试每个 WCH 串口，第一个能打开的就是板子。
     private func connect() {
-        let names = (try? FileManager.default.contentsOfDirectory(atPath: "/dev")) ?? []
-        guard let path = pickSerialDevice(from: names), let port = SerialPort(path: path) else { return }
-        self.port = port
-        portPath = path
-        resetBaselines()
+        for path in boardCandidates(listSerialDevices()) {
+            if let port = SerialPort(path: path) {
+                self.port = port
+                portPath = path
+                return
+            }
+        }
     }
 
     private func disconnect() {
         port?.close()
         port = nil
         portPath = nil
-        summary = "等待数据…"
-        resetBaselines()
-    }
-
-    private func resetBaselines() {
-        rateMeter = RateMeter()
-        lastCPU = nil
-        lastTime = nil
     }
 
     private func rateText(_ bytesPerSecond: UInt64) -> String {
         ByteCountFormatter.string(fromByteCount: Int64(bytesPerSecond), countStyle: .memory) + "/s"
+    }
+
+    private func setActivity(_ on: Bool) {
+        if on, activity == nil {
+            activity = ProcessInfo.processInfo.beginActivity(
+                options: .userInitiatedAllowingIdleSystemSleep, reason: "Send system stats to the ESP32 screen")
+        } else if !on, let activity {
+            ProcessInfo.processInfo.endActivity(activity)
+            self.activity = nil
+        }
     }
 
     // MARK: - 显示器睡眠 / 锁屏联动
@@ -107,8 +105,11 @@ final class MonitorController: ObservableObject {
         change(&gate)
         if wasActive && !gate.active {
             if let port, !port.write(offLine) { disconnect() }
-            resetBaselines()
+            sampler.reset()
+            summary.text = "已暂停（显示器睡眠或锁屏）"
+            setActivity(false)
         } else if !wasActive && gate.active {
+            setActivity(true)
             tick()  // 立刻建立基线，下一次触发就能发数据点亮副屏
         }
     }
@@ -134,9 +135,4 @@ final class MonitorController: ObservableObject {
         }
         observers.append((center, token))
     }
-}
-
-private func zip<A, B>(_ a: A?, _ b: B?) -> (A, B)? {
-    guard let a, let b else { return nil }
-    return (a, b)
 }
