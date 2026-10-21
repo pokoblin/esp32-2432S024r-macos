@@ -29,3 +29,53 @@ import Testing
     #expect(done.wait(timeout: .now() + 3) == .success)
     #expect(reportedDead)
 }
+
+@Test func lineBufferSplitsAcrossChunks() {
+    var b = SerialLineBuffer()
+    #expect(b.append(Array("TA".utf8)) == [])
+    #expect(b.append(Array("P\r\nfoo\n".utf8)) == ["TAP", "foo"])
+}
+
+@Test func lineBufferDropsOverlong() {
+    var b = SerialLineBuffer()
+    #expect(b.append(Array(repeating: UInt8(ascii: "x"), count: 300) + Array("\nTAP\n".utf8)) == ["TAP"])
+}
+
+@Test func lineBufferToleratesInvalidUTF8() {
+    var b = SerialLineBuffer()
+    #expect(b.append([0xff, 0xfe, 0x0a] + Array("TAP\n".utf8)).last == "TAP")
+}
+
+/// 伪终端另一头写进来的行，要在主线程通过 onLine 交出来；另一头关掉后端口应判为失联。
+@MainActor
+@Test func readsLinesAndDetectsHangup() async throws {
+    var master: Int32 = -1
+    var slave: Int32 = -1
+    var name = [CChar](repeating: 0, count: 128)
+    try #require(openpty(&master, &slave, &name, nil, nil) == 0)
+    let path = name.withUnsafeBufferPointer { String(cString: $0.baseAddress!) }
+    let port = try #require(SerialPort(path: path))
+    // 和 SerialPort 一样独占打开后，slave 这端可以关掉；只留 master 当"板子"
+    close(slave)
+
+    var received: [String] = []
+    let gotLine = AsyncStream<Void>.makeStream()
+    port.onLine = { line in
+        received.append(line)
+        gotLine.continuation.yield()
+    }
+    port.startReading()
+
+    let msg = Array("TAP\r\n".utf8)
+    #expect(Darwin.write(master, msg, msg.count) == msg.count)
+    for await _ in gotLine.stream { break }
+    #expect(received == ["TAP"])
+
+    // 板子端断开：读到 EOF/EIO，端口判为失联，write 返回 false
+    close(master)
+    for _ in 0..<100 where port.write("x\n") {
+        try await Task.sleep(for: .milliseconds(20))
+    }
+    #expect(port.write("x\n") == false)
+    port.close()
+}
