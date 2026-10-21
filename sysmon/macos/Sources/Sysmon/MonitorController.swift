@@ -15,7 +15,11 @@ final class SummaryModel: ObservableObject {
 final class MonitorController: ObservableObject {
     @Published private(set) var portPath: String?
     @Published private(set) var launchAtLogin = false
+    /// 全局快捷键注册失败（例如被别的程序占用），设置窗口据此提示
+    @Published private(set) var hotKeyFailed = false
     let summary = SummaryModel()
+    let preferences = Preferences()
+    let usage: UsageController
 
     private static let interval: TimeInterval = 2
 
@@ -23,12 +27,17 @@ final class MonitorController: ObservableObject {
     private var gate = DisplayGate()
     private var sampler = MetricsSampler()
     private var timer: Timer?
+    private let hotKey = HotKeyCenter()
     // 工作时持有，防止 App Nap 拖慢定时器；暂停期间释放
     private var activity: NSObjectProtocol?
     private var observers: [(NotificationCenter, NSObjectProtocol)] = []
 
     init() {
+        usage = UsageController(preferences: preferences)
         launchAtLogin = SMAppService.mainApp.status == .enabled
+        // 快捷键和板子的 TAP 都走 advancePage，保证只有一份「当前页」
+        hotKey.onPress = { [weak self] in self?.advancePage() }
+        hotKeyFailed = !hotKey.register(preferences.hotKey)
         setActivity(true)
         observeSystemEvents()
 
@@ -58,19 +67,84 @@ final class MonitorController: ObservableObject {
 
     private func tick() {
         guard gate.active else { return }
+        // 用量拉取按自己的节奏排期，放在 defer 里：不受采样基线阶段提前返回的影响
+        defer { usage.tick(gateActive: gate.active) }
         if port == nil { connect() }
 
         guard let sample = sampler.sample(cpu: readCPUTicks(), counters: readPhysicalCounters(),
                                           memory: readMemoryPressure(),
                                           now: ProcessInfo.processInfo.systemUptime) else { return }
         summary.text = "CPU \(sample.cpu)% · 内存压力 \(sample.mem)% · ↓\(rateText(sample.rx)) ↑\(rateText(sample.tx))"
-        if let port, !port.write(encodeSample(sample)) { disconnect() }
+        // 发送顺序固定：S → P → U。系统状态数据停在用量页时也照常发，曲线才连续
+        send([encodeSample(sample)] + pageLines())
+    }
+
+    /// 依次写出几行；任何一行写失败就断开，等下一次触发重连。
+    private func send(_ lines: [String]) {
+        guard let port else { return }
+        for line in lines where !port.write(line) {
+            disconnect()
+            return
+        }
+    }
+
+    /// 当前页的 P 行；当前页是用量页时再带一条 U 行。
+    private func pageLines() -> [String] {
+        let enabled = preferences.enabledPages
+        let page = resolvePage(preferences.page, enabled: enabled)
+        if page != preferences.page { preferences.page = page }
+        var lines = [encodePage(page, enabled: enabled)]
+        let service: UsageService? = switch page {
+        case .sys: nil
+        case .claude: .claude
+        case .chatgpt: .chatgpt
+        }
+        if let service {
+            let state = usage.states[service] ?? UsageState()
+            lines.append(encodeUsage(service, status: state.status, snapshot: state.snapshot,
+                                     now: Date(), calendar: .current))
+        }
+        return lines
+    }
+
+    // MARK: - 切屏与设置
+
+    /// 快捷键和板子的 TAP 的唯一入口：熄屏时不动，只有系统状态屏时也不动。
+    func advancePage() {
+        guard gate.active else { return }
+        let enabled = preferences.enabledPages
+        guard enabled.count > 1 else { return }
+        preferences.page = nextPage(after: resolvePage(preferences.page, enabled: enabled), enabled: enabled)
+        send(pageLines())  // 立刻发 P（和 U），不重发 S
+    }
+
+    /// 开关某块用量屏：当前页被关掉就回系统状态屏，开启时马上拉一次数据。
+    func setUsageEnabled(_ service: UsageService, _ on: Bool) {
+        switch service {
+        case .claude: preferences.claudeEnabled = on
+        case .chatgpt: preferences.chatgptEnabled = on
+        }
+        preferences.page = resolvePage(preferences.page, enabled: preferences.enabledPages)
+        // 熄屏时不发也不拉；亮屏后的第一个 tick 会补上（调度已到期）
+        guard gate.active else { return }
+        send(pageLines())
+        if on { usage.refreshNow(service) }
+    }
+
+    func setHotKey(_ combo: HotKeyCombo?) {
+        preferences.hotKey = combo
+        hotKeyFailed = !hotKey.register(combo)
     }
 
     /// 依次尝试每个 WCH 串口，第一个能打开的就是板子。
     private func connect() {
         for path in boardCandidates(listSerialDevices()) {
             if let port = SerialPort(path: path) {
+                // 板子发回来的 TAP 行当作一次切屏；其他内容（开机日志等）忽略
+                port.onLine = { [weak self] line in
+                    if isTapLine(line) { self?.advancePage() }
+                }
+                port.startReading()
                 self.port = port
                 portPath = path
                 return
@@ -79,6 +153,7 @@ final class MonitorController: ObservableObject {
     }
 
     private func disconnect() {
+        port?.onLine = nil
         port?.close()
         port = nil
         portPath = nil
@@ -104,12 +179,13 @@ final class MonitorController: ObservableObject {
         let wasActive = gate.active
         change(&gate)
         if wasActive && !gate.active {
-            if let port, !port.write(offLine) { disconnect() }
+            send([offLine])
             sampler.reset()
             summary.text = "已暂停（显示器睡眠或锁屏）"
             setActivity(false)
         } else if !wasActive && gate.active {
             setActivity(true)
+            usage.refreshNow()  // 熄屏期间不拉取，亮屏后马上补一次
             tick()  // 立刻建立基线，下一次触发就能发数据点亮副屏
         }
     }
