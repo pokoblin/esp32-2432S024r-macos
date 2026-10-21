@@ -25,6 +25,7 @@ struct MenuContent: View {
     @ObservedObject var summary: SummaryModel
     @ObservedObject var preferences: Preferences
     @ObservedObject var usage: UsageController
+    @Environment(\.openSettings) private var openSettings
 
     var body: some View {
         Text(monitor.portPath.map { "已连接 \($0)" } ?? "未找到设备")
@@ -33,9 +34,12 @@ struct MenuContent: View {
             Text(menuSummary(service, usage.states[service] ?? UsageState(), now: Date()))
         }
         Divider()
-        SettingsLink { Text("设置…") }
-            // 菜单栏程序没有 Dock 图标，打开设置时要主动把窗口带到最前
-            .simultaneousGesture(TapGesture().onEnded { NSApp.activate(ignoringOtherApps: true) })
+        // 菜单栏程序没有 Dock 图标：每次点击都先激活 App 再打开设置，窗口才会成为 key 并在最前
+        // （用 SettingsLink 的话菜单项上的手势不会触发，也就没法在点击时激活）
+        Button("设置…") {
+            NSApp.activate()
+            openSettings()
+        }
         Divider()
         Button("退出") { NSApplication.shared.terminate(nil) }
             .keyboardShortcut("q")

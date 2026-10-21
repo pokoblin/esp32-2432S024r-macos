@@ -44,8 +44,6 @@ struct SettingsView: View {
         .formStyle(.grouped)
         .frame(width: 440)
         .fixedSize(horizontal: false, vertical: true)
-        // 菜单栏程序没有 Dock 图标，窗口默认不在最前；录制快捷键要窗口是 key 才收得到按键
-        .onAppear { NSApp.activate(ignoringOtherApps: true) }
     }
 
     private func usageToggle(_ title: String, _ service: UsageService, isOn: Bool) -> some View {
