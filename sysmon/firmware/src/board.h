@@ -1,5 +1,6 @@
 // ESP32-2432S024R 的 LovyanGFX 屏幕配置（ST7789，HSPI）。
-// 取自 touch_test/src/board.h，去掉了本项目用不到的 XPT2046 触摸部分。
+// 取自 touch_test/src/board.h。触摸只用来判断有没有按下，不读坐标，所以没有接 LovyanGFX 的触摸驱动，
+// 只靠 XPT2046 的 PENIRQ 脚。
 // 屏幕 MISO 未接读不出 ID；用 Panel_ILI9341 时其初始化里的 0xC0=0x23 在 ST7789 上是 LCMCTRL，
 // 会导致画面转置+镜像，由此判断控制器实为 ST7789。
 #pragma once
@@ -61,3 +62,25 @@ class LGFX : public lgfx::LGFX_Device {
     setPanel(&_panel);
   }
 };
+
+namespace board {
+constexpr int PIN_TOUCH_IRQ = 36, PIN_TOUCH_CS = 33;
+
+// 给 XPT2046 发一个 0x80：进入省电模式并使能 PENIRQ，之后按下时 IRQ 脚变低。
+// 触摸和屏幕共用 HSPI，做法照 touch_test 的 readTouchRaw：等屏幕 DMA 结束，再单独开一次传输。
+// 调用前 PIN_TOUCH_IRQ 要设成输入（GPIO36 只能输入，也没有内部上拉）。
+inline void enablePenIrq(LGFX& lcd) {
+  pinMode(PIN_TOUCH_CS, OUTPUT);
+  digitalWrite(PIN_TOUCH_CS, HIGH);
+  uint8_t cmd = 0x80;
+  lcd.waitDMA();
+  lgfx::spi::beginTransaction(HSPI_HOST, 1000000, 0);
+  lgfx::gpio_lo(PIN_TOUCH_CS);
+  lgfx::spi::readBytes(HSPI_HOST, &cmd, 1);
+  lgfx::gpio_hi(PIN_TOUCH_CS);
+  lgfx::spi::endTransaction(HSPI_HOST);
+}
+
+// 按下时 PENIRQ 为低
+inline bool touchPressed() { return digitalRead(PIN_TOUCH_IRQ) == LOW; }
+}  // namespace board
