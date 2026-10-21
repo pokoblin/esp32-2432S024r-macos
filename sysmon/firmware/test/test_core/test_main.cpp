@@ -124,6 +124,23 @@ static void test_screen_state_millis_wrap() {
   TEST_ASSERT_TRUE(st.lit(0x00000100u));
 }
 
+// 板子长时间收不到数据时，millis() 差值约 49.7 天后会回绕到很小的值，不能因此重新亮屏
+static void test_screen_state_expiry_latched() {
+  ScreenState st;
+  st.onSample(0);
+  st.tick(10001);
+  TEST_ASSERT_FALSE(st.lit(5));
+}
+
+// 同理，熄屏超过 5 分钟后，回绕不能让下一条数据跳过清空历史
+static void test_screen_state_stale_latched() {
+  ScreenState st;
+  st.onSample(0);
+  st.tick(300001);
+  TEST_ASSERT_TRUE(st.onSample(5));
+  TEST_ASSERT_TRUE(st.lit(5));
+}
+
 // ---- history ----
 
 static void test_history_rollover() {
@@ -177,6 +194,13 @@ static void test_format_rate_rounding_boundaries() {
   assertRate(1023500, "0.98", "MB/s");
 }
 
+// 万兆网会超过 1000 MB/s，换成 GB/s 保持 3 位
+static void test_format_rate_gigabytes() {
+  assertRate(1047527424, "0.98", "GB/s");
+  assertRate(1610612736, "1.50", "GB/s");
+  assertRate(4294967295u, "4.00", "GB/s");
+}
+
 // ---- tones ----
 
 static void test_tones() {
@@ -206,11 +230,14 @@ int main(int, char**) {
   RUN_TEST(test_screen_state_off_then_resume);
   RUN_TEST(test_screen_state_stale);
   RUN_TEST(test_screen_state_millis_wrap);
+  RUN_TEST(test_screen_state_expiry_latched);
+  RUN_TEST(test_screen_state_stale_latched);
   RUN_TEST(test_history_rollover);
   RUN_TEST(test_history_peak_after_evict);
   RUN_TEST(test_history_empty_peak);
   RUN_TEST(test_format_rate);
   RUN_TEST(test_format_rate_rounding_boundaries);
+  RUN_TEST(test_format_rate_gigabytes);
   RUN_TEST(test_tones);
   return UNITY_END();
 }

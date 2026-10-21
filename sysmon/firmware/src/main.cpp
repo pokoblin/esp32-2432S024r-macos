@@ -44,7 +44,9 @@ void loop() {
     }
   }
 
-  bool lit = state.lit(millis());
+  uint32_t now = millis();
+  state.tick(now);
+  bool lit = state.lit(now);
   if (lit != backlightOn) {
     lcd.setBrightness(lit ? BRIGHTNESS : 0);
     backlightOn = lit;
