@@ -74,22 +74,25 @@ public struct UsageSchedule: Sendable {
     }
 }
 
-/// 窗口已重置（resetsAt 早于现在）时旧百分比没有意义，显示 "--"。
-private func summaryPercent(_ window: UsageWindow?, now: Date) -> String {
-    guard let window else { return "--" }
-    if let reset = window.resetsAt, reset < now { return "--" }
-    return "\(window.percent)%"
-}
-
-/// 菜单里每个服务那一行的文字。
-public func menuSummary(_ service: UsageService, _ state: UsageState, now: Date) -> String {
-    let name = service == .claude ? "Claude" : "ChatGPT"
+/// 设置窗口里每个服务开关下面的灰字状态。
+public func settingsStatus(_ state: UsageState, now: Date) -> String {
     switch state.status {
     case .ok:
-        guard let snapshot = state.snapshot else { return "\(name) 读取失败" }
-        return "\(name) 5小时 \(summaryPercent(snapshot.fiveHour, now: now)) · 本周 \(summaryPercent(snapshot.week, now: now))"
-    case .expired: return "\(name) 已过期"
-    case .error: return "\(name) 读取失败"
-    case .missing: return "\(name) 未登录"
+        guard let fetched = state.snapshot?.fetchedAt else { return "读取失败" }
+        return "正常 · \(ageText(now.timeIntervalSince(fetched)))更新"
+    case .expired: return "已过期"
+    case .error: return "读取失败"
+    case .missing: return "未登录"
+    }
+}
+
+/// 数据新鲜度：刚刚 / N 分钟前 / N 小时前 / N 天前。
+private func ageText(_ seconds: TimeInterval) -> String {
+    let s = Int(min(max(0, seconds), Double(Int32.max)))
+    switch s {
+    case ..<60: return "刚刚"
+    case ..<3600: return "\(s / 60) 分钟前"
+    case ..<86400: return "\(s / 3600) 小时前"
+    default: return "\(s / 86400) 天前"
     }
 }

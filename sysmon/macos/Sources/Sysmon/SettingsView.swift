@@ -55,30 +55,11 @@ struct SettingsView: View {
             if isOn {
                 // 「N 分钟前更新」会随时间变化，每分钟重算一次
                 TimelineView(.everyMinute) { context in
-                    Text(statusText(service, now: context.date))
+                    Text(settingsStatus(usage.states[service] ?? UsageState(), now: context.date))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
             }
-        }
-    }
-
-    /// 灰字状态：正常时写新鲜度，其余复用 menuSummary 去掉服务名的部分。
-    private func statusText(_ service: UsageService, now: Date) -> String {
-        let state = usage.states[service] ?? UsageState()
-        if state.status == .ok, let fetched = state.snapshot?.fetchedAt {
-            return "正常 · \(ageText(now.timeIntervalSince(fetched)))更新"
-        }
-        let summary = menuSummary(service, state, now: now)
-        return summary.split(separator: " ", maxSplits: 1).dropFirst().first.map(String.init) ?? summary
-    }
-
-    private func ageText(_ seconds: TimeInterval) -> String {
-        switch Int(max(0, seconds)) {
-        case ..<60: "刚刚"
-        case ..<3600: "\(Int(seconds) / 60) 分钟前"
-        case ..<86400: "\(Int(seconds) / 3600) 小时前"
-        default: "\(Int(seconds) / 86400) 天前"
         }
     }
 }

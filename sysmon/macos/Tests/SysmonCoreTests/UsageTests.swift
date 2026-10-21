@@ -379,23 +379,25 @@ private let usageSnap = UsageSnapshot(
     #expect(c.timeoutInterval == 15)
 }
 
-@Test func menuSummaryText() {
-    let snap = usageSnap
-    #expect(menuSummary(.claude, UsageState(status: .ok, snapshot: snap), now: usageNow) == "Claude 5小时 42% · 本周 67%")
-    #expect(menuSummary(.chatgpt, UsageState(status: .expired, snapshot: snap), now: usageNow) == "ChatGPT 已过期")
-    #expect(menuSummary(.claude, UsageState(status: .error, snapshot: snap), now: usageNow) == "Claude 读取失败")
-    #expect(menuSummary(.claude, UsageState(), now: usageNow) == "Claude 未登录")
-}
+@Test func settingsStatusText() {
+    func ok(ageSeconds: TimeInterval) -> String {
+        let snap = UsageSnapshot(fetchedAt: usageNow - ageSeconds)
+        return settingsStatus(UsageState(status: .ok, snapshot: snap), now: usageNow)
+    }
+    #expect(ok(ageSeconds: 0) == "正常 · 刚刚更新")
+    #expect(ok(ageSeconds: 59) == "正常 · 刚刚更新")
+    #expect(ok(ageSeconds: 60) == "正常 · 1 分钟前更新")
+    #expect(ok(ageSeconds: 3599) == "正常 · 59 分钟前更新")
+    #expect(ok(ageSeconds: 3600) == "正常 · 1 小时前更新")
+    #expect(ok(ageSeconds: 86399) == "正常 · 23 小时前更新")
+    #expect(ok(ageSeconds: 86400 * 3) == "正常 · 3 天前更新")
+    // 时钟回拨（fetchedAt 在未来）按刚刚处理
+    #expect(ok(ageSeconds: -30) == "正常 · 刚刚更新")
 
-@Test func menuSummaryShowsDashesForResetOrMissingWindows() {
-    // 5 小时窗口已重置 → "--"；本周缺失 → "--"
-    let snap = UsageSnapshot(
-        fiveHour: UsageWindow(percent: 42, resetsAt: usageNow - 1, minutes: 300),
-        fetchedAt: usageNow - 600)
-    #expect(menuSummary(.chatgpt, UsageState(status: .ok, snapshot: snap), now: usageNow) == "ChatGPT 5小时 -- · 本周 --")
-    // 没有 resetsAt 的窗口照常显示百分比
-    let noReset = UsageSnapshot(fiveHour: UsageWindow(percent: 9), week: UsageWindow(percent: 100), fetchedAt: usageNow)
-    #expect(menuSummary(.claude, UsageState(status: .ok, snapshot: noReset), now: usageNow) == "Claude 5小时 9% · 本周 100%")
+    let snap = usageSnap
+    #expect(settingsStatus(UsageState(status: .expired, snapshot: snap), now: usageNow) == "已过期")
+    #expect(settingsStatus(UsageState(status: .error, snapshot: snap), now: usageNow) == "读取失败")
+    #expect(settingsStatus(UsageState(), now: usageNow) == "未登录")
     // ok 但没有快照（不应出现）→ 按读取失败处理
-    #expect(menuSummary(.claude, UsageState(status: .ok, snapshot: nil), now: usageNow) == "Claude 读取失败")
+    #expect(settingsStatus(UsageState(status: .ok, snapshot: nil), now: usageNow) == "读取失败")
 }
