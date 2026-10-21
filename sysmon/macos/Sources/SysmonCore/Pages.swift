@@ -37,6 +37,12 @@ public func isTapLine(_ line: String) -> Bool {
     line.trimmingCharacters(in: .whitespacesAndNewlines) == "TAP"
 }
 
+/// 秒数转 Int 并限制在 0...Int32.max，Double 太大或非有限时不会崩溃。
+private func clampedSeconds(_ seconds: Double) -> Int {
+    guard seconds.isFinite else { return 0 }
+    return Int(min(Double(Int32.max), max(0, seconds.rounded(.down))))
+}
+
 /// 窗口百分比：已过重置时刻的窗口数据作废，编码成 -1。
 private func windowPercent(_ w: UsageWindow, now: Date) -> Int {
     if let r = w.resetsAt, r < now { return -1 }
@@ -49,7 +55,7 @@ public func encodeUsage(_ service: UsageService, status: UsageStatus, snapshot: 
                         now: Date, calendar: Calendar) -> String {
     var line = "U svc=\(service.rawValue) st=\(status.rawValue)"
     if let s = snapshot {
-        line += " age=\(max(0, Int(now.timeIntervalSince(s.fetchedAt).rounded(.down))))"
+        line += " age=\(clampedSeconds(now.timeIntervalSince(s.fetchedAt)))"
         if let plan = s.plan {
             let p = String(String.UnicodeScalarView(plan.unicodeScalars.filter {
                 ("a"..."z").contains($0) || ("0"..."9").contains($0)
@@ -59,7 +65,7 @@ public func encodeUsage(_ service: UsageService, status: UsageStatus, snapshot: 
         if let w = s.fiveHour {
             line += " h5=\(windowPercent(w, now: now))"
             if let r = w.resetsAt, r >= now {
-                line += " h5r=\(Int(r.timeIntervalSince(now).rounded(.down)))"
+                line += " h5r=\(clampedSeconds(r.timeIntervalSince(now)))"
             }
         }
         if let w = s.week {

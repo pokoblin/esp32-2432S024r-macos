@@ -63,7 +63,9 @@ private func iso(_ s: String) -> Date {
 }
 
 @Test func parsesCodexUsage() throws {
-    let s = try parseCodexUsage(Data(UsageFixtures.codex.utf8), now: .init(timeIntervalSince1970: 0))
+    // now 取夹具采集当天，reset_at 才落在「现在起一年内」
+    let now = Date(timeIntervalSince1970: 1_792_570_000)
+    let s = try parseCodexUsage(Data(UsageFixtures.codex.utf8), now: now)
     #expect(s.fiveHour?.minutes == 300 && s.week?.minutes == 10080)
     #expect(s.fiveHour?.percent == 0)
     #expect(s.week?.percent == 1)
@@ -71,7 +73,7 @@ private func iso(_ s: String) -> Date {
     #expect(s.week?.resetsAt == Date(timeIntervalSince1970: 1_793_090_928))
     #expect(s.plan == "plus")
     #expect(s.opus == nil && s.sonnet == nil)
-    #expect(s.fetchedAt == Date(timeIntervalSince1970: 0))
+    #expect(s.fetchedAt == now)
 }
 
 @Test func codexClassifiesWindowsByLength() throws {
@@ -96,6 +98,30 @@ private func iso(_ s: String) -> Date {
     let s = try parseCodexUsage(Data(json.utf8), now: .init(timeIntervalSince1970: 0))
     #expect(s.fiveHour?.percent == 10 && s.fiveHour?.minutes == 60)
     #expect(s.week?.percent == 20 && s.week?.minutes == 1440)
+}
+
+@Test func codexHugeNumbersDoNotTrap() throws {
+    // 远端给出超出 Int / 合理日期范围的数字时不能崩溃：窗口长度当作未知，重置时间当作没有
+    let json = #"""
+    {"plan_type":"plus","rate_limit":{
+      "primary_window":{"used_percent":10,"limit_window_seconds":1e30,"reset_at":1e300},
+      "secondary_window":{"used_percent":20,"limit_window_seconds":604800,"reset_at":-1e300}}}
+    """#
+    let now = Date(timeIntervalSince1970: 1_800_000_000)
+    let s = try parseCodexUsage(Data(json.utf8), now: now)
+    #expect(s.fiveHour?.percent == 10 && s.fiveHour?.minutes == nil && s.fiveHour?.resetsAt == nil)
+    #expect(s.week?.percent == 20 && s.week?.resetsAt == nil)
+}
+
+@Test func codexResetAtOutsideSaneRangeIsIgnored() throws {
+    let now = Date(timeIntervalSince1970: 1_800_000_000)
+    func reset(_ v: String) throws -> Date? {
+        let json = #"{"rate_limit":{"primary_window":{"used_percent":1,"limit_window_seconds":18000,"reset_at":\#(v)}}}"#
+        return try parseCodexUsage(Data(json.utf8), now: now).fiveHour?.resetsAt
+    }
+    #expect(try reset("1800003600") == Date(timeIntervalSince1970: 1_800_003_600))
+    #expect(try reset("1900000000") == nil)   // 超过 now + 1 年
+    #expect(try reset("900000000") == nil)    // 早于 2000 年
 }
 
 @Test func usageParseRejectsGarbage() {
@@ -234,6 +260,22 @@ private let protoNow = shanghai.date(from: DateComponents(year: 2026, month: 10,
     let line = encodeUsage(.chatgpt, status: .ok, snapshot: snap, now: protoNow, calendar: shanghai)
     #expect(line.contains(" h5=-1") && !line.contains("h5r=") && line.contains(" wk=-1") && !line.contains("wkd="))
     #expect(!line.contains("wkt="))
+}
+
+@Test func usageEncodingNeverTrapsOnFarFutureReset() {
+    // 恢复自持久化快照的 resetsAt 可能极远，h5r 必须落在 Int32 范围内
+    let far = Date(timeIntervalSince1970: 1e300)
+    let snap = UsageSnapshot(
+        fiveHour: UsageWindow(percent: 5, resetsAt: far),
+        week: UsageWindow(percent: 6, resetsAt: far),
+        fetchedAt: protoNow)
+    let line = encodeUsage(.claude, status: .ok, snapshot: snap, now: protoNow, calendar: shanghai)
+    let h5r = line.split(separator: " ").first { $0.hasPrefix("h5r=") }.flatMap { Int($0.dropFirst(4)) }
+    #expect(h5r != nil && (0...Int(Int32.max)).contains(h5r!))
+    // 极端的 fetchedAt 也不能让 age 溢出
+    let old = UsageSnapshot(fiveHour: UsageWindow(percent: 5), fetchedAt: Date(timeIntervalSince1970: -1e300))
+    let l2 = encodeUsage(.claude, status: .error, snapshot: old, now: protoNow, calendar: shanghai)
+    #expect(l2.hasPrefix("U svc=cl st=err age="))
 }
 
 @Test func usageWithoutSnapshotHasNoNumbers() {

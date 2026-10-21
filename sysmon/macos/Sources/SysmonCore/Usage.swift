@@ -109,10 +109,21 @@ public func parseClaudeUsage(_ data: Data, plan: String?, now: Date) throws -> U
         fetchedAt: now)
 }
 
-private func codexWindow(_ raw: Any?) -> (window: UsageWindow, seconds: Int?)? {
+/// reset_at（Unix 秒）只接受 2000 年之后、不超过现在起一年的值；
+/// 非有限数或离谱的数字当作没有，避免后面的日期换算溢出。
+private func saneResetDate(_ seconds: Double?, now: Date) -> Date? {
+    guard let seconds, seconds.isFinite else { return nil }
+    let earliest = 946_684_800.0   // 2000-01-01 UTC
+    let latest = now.timeIntervalSince1970 + 366 * 86400
+    guard seconds >= earliest, seconds <= latest else { return nil }
+    return Date(timeIntervalSince1970: seconds)
+}
+
+private func codexWindow(_ raw: Any?, now: Date) -> (window: UsageWindow, seconds: Int?)? {
     guard let d = raw as? [String: Any], let used = number(d["used_percent"]) else { return nil }
-    let seconds = number(d["limit_window_seconds"]).map { Int($0) }
-    let reset = number(d["reset_at"]).map { Date(timeIntervalSince1970: $0) }
+    // 超出 Int 范围或非有限数时 Int(exactly:) 返回 nil，按窗口长度未知处理
+    let seconds = number(d["limit_window_seconds"]).flatMap { Int(exactly: $0) }
+    let reset = saneResetDate(number(d["reset_at"]), now: now)
     return (UsageWindow(percent: clampPercent(used), resetsAt: reset, minutes: seconds.map { $0 / 60 }), seconds)
 }
 
@@ -122,7 +133,7 @@ private func codexWindow(_ raw: Any?) -> (window: UsageWindow, seconds: Int?)? {
 public func parseCodexUsage(_ data: Data, now: Date) throws -> UsageSnapshot {
     let obj = try jsonObject(data)
     guard let limit = obj["rate_limit"] as? [String: Any] else { throw UsageParseError() }
-    let windows = [codexWindow(limit["primary_window"]), codexWindow(limit["secondary_window"])]
+    let windows = [codexWindow(limit["primary_window"], now: now), codexWindow(limit["secondary_window"], now: now)]
 
     var five: UsageWindow?
     var week: UsageWindow?
