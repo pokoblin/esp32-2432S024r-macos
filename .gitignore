@@ -4,3 +4,5 @@ CLAUDE.md
 backup/
 .superpowers/brainstorm/.last-*
 .superpowers/brainstorm/*/state/
+sysmon/macos/.build/
+sysmon/macos/build/
