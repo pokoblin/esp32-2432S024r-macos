@@ -1,0 +1,102 @@
+<style>
+  .scr { width:240px; height:320px; background:#0b0d10; color:#e8eaed; font-family:-apple-system,"PingFang SC",sans-serif;
+         box-sizing:border-box; overflow:hidden; position:relative; zoom:1.35; outline:6px solid #222; border-radius:2px; padding:10px 12px; }
+  .lbl { font-size:12px; color:#8a9099; }
+  .dim { font-size:10px; color:#5c626b; }
+  .num { font-weight:700; font-variant-numeric:tabular-nums; }
+  .hdr { display:flex; justify-content:space-between; align-items:center; height:22px; }
+  .brand { font-size:15px; font-weight:700; color:#d97757; }
+  .dots { font-size:9px; color:#3a3f46; letter-spacing:2px } .dots b { color:#8a9099; font-weight:400 }
+  .foot { position:absolute; left:12px; right:12px; bottom:8px; display:flex; justify-content:space-between; }
+  .bar { height:8px; background:#1c2026; border-radius:4px; overflow:hidden; margin-top:4px }
+  .bar i { display:block; height:100%; border-radius:4px }
+  .row { margin-top:12px }
+  .row .top { display:flex; justify-content:space-between; align-items:baseline }
+  .wrap { display:flex; gap:28px; align-items:flex-start; justify-content:center; flex-wrap:wrap; padding:16px 0 }
+  .col { display:flex; flex-direction:column; align-items:center; gap:10px; cursor:pointer; padding:10px; border-radius:10px; border:2px solid transparent }
+  .col.selected { border-color:#0a84ff }
+  .col h3 { margin:0 } .col p { margin:0; max-width:330px; font-size:13px; line-height:1.6 }
+</style>
+
+<h2>Claude 屏怎么排？</h2>
+<p class="subtitle">竖放 240×320，放大显示，数据是假的。ChatGPT 屏用同一种排法，只是没有 Opus/Sonnet 分项，标题换成绿色的 ChatGPT。点一下你喜欢的那版。</p>
+
+<div class="wrap">
+
+  <!-- A: two rings -->
+  <div class="col" data-choice="a" onclick="toggleSelect(this)">
+    <h3>A · 两个圆环</h3>
+    <div class="scr">
+      <div class="hdr"><span class="brand">Claude</span><span class="dots">○<b>●</b>○</span></div>
+      <div style="display:flex;justify-content:space-between;margin-top:6px">
+        <svg width="104" height="132" viewBox="0 0 104 132">
+          <circle cx="52" cy="50" r="40" fill="none" stroke="#1c2026" stroke-width="11"/>
+          <circle cx="52" cy="50" r="40" fill="none" stroke="#34c759" stroke-width="11" stroke-linecap="round" stroke-dasharray="105.5 251.3" transform="rotate(-90 52 50)"/>
+          <text x="52" y="59" text-anchor="middle" font-size="26" font-weight="700" fill="#e8eaed">42</text>
+          <text x="52" y="110" text-anchor="middle" font-size="12" fill="#8a9099">5 小时 %</text>
+          <text x="52" y="126" text-anchor="middle" font-size="10" fill="#5c626b">2小时13分后重置</text>
+        </svg>
+        <svg width="104" height="132" viewBox="0 0 104 132">
+          <circle cx="52" cy="50" r="40" fill="none" stroke="#1c2026" stroke-width="11"/>
+          <circle cx="52" cy="50" r="40" fill="none" stroke="#ffcc00" stroke-width="11" stroke-linecap="round" stroke-dasharray="168.4 251.3" transform="rotate(-90 52 50)"/>
+          <text x="52" y="59" text-anchor="middle" font-size="26" font-weight="700" fill="#ffcc00">67</text>
+          <text x="52" y="110" text-anchor="middle" font-size="12" fill="#8a9099">本周 %</text>
+          <text x="52" y="126" text-anchor="middle" font-size="10" fill="#5c626b">周四 14:00 重置</text>
+        </svg>
+      </div>
+      <div style="border-top:1px solid #1c2026;margin-top:4px;padding-top:2px">
+        <div class="row"><div class="top"><span class="lbl">本周 Opus</span><span class="num" style="font-size:14px">12%</span></div><div class="bar"><i style="width:12%;background:#34c759"></i></div></div>
+        <div class="row"><div class="top"><span class="lbl">本周 Sonnet</span><span class="num" style="font-size:14px">28%</span></div><div class="bar"><i style="width:28%;background:#34c759"></i></div></div>
+      </div>
+      <div class="foot"><span class="dim">Max</span><span class="dim">1 分钟前更新</span></div>
+    </div>
+    <p>和系统状态屏一个风格：上面两个圆环，下面两条细条显示分项。三屏切换时视觉统一。</p>
+  </div>
+
+  <!-- B: stacked bars -->
+  <div class="col" data-choice="b" onclick="toggleSelect(this)">
+    <h3>B · 一排排进度条</h3>
+    <div class="scr">
+      <div class="hdr"><span class="brand">Claude</span><span class="dots">○<b>●</b>○</span></div>
+      <div class="row" style="margin-top:14px"><div class="top"><span class="lbl">5 小时</span><span class="num" style="font-size:26px">42<span class="lbl">%</span></span></div>
+        <div class="bar" style="height:12px"><i style="width:42%;background:#34c759"></i></div><div class="dim" style="margin-top:3px">2小时13分后重置</div></div>
+      <div class="row" style="margin-top:16px"><div class="top"><span class="lbl">本周</span><span class="num" style="font-size:26px;color:#ffcc00">67<span class="lbl">%</span></span></div>
+        <div class="bar" style="height:12px"><i style="width:67%;background:#ffcc00"></i></div><div class="dim" style="margin-top:3px">周四 14:00 重置</div></div>
+      <div class="row" style="margin-top:16px"><div class="top"><span class="lbl">本周 Opus</span><span class="num" style="font-size:18px">12<span class="lbl">%</span></span></div>
+        <div class="bar"><i style="width:12%;background:#34c759"></i></div></div>
+      <div class="row"><div class="top"><span class="lbl">本周 Sonnet</span><span class="num" style="font-size:18px">28<span class="lbl">%</span></span></div>
+        <div class="bar"><i style="width:28%;background:#34c759"></i></div></div>
+      <div class="foot"><span class="dim">Max</span><span class="dim">1 分钟前更新</span></div>
+    </div>
+    <p>像 Claude Code 里 <code>/usage</code> 的样子，从上到下一条条读。信息密、好对照，但没那么“一眼看完”。</p>
+  </div>
+
+  <!-- C: one hero ring -->
+  <div class="col" data-choice="c" onclick="toggleSelect(this)">
+    <h3>C · 一个大圆环</h3>
+    <div class="scr">
+      <div class="hdr"><span class="brand">Claude</span><span class="dots">○<b>●</b>○</span></div>
+      <div style="display:flex;justify-content:center;margin-top:2px">
+        <svg width="160" height="150" viewBox="0 0 160 150">
+          <circle cx="80" cy="70" r="58" fill="none" stroke="#1c2026" stroke-width="14"/>
+          <circle cx="80" cy="70" r="58" fill="none" stroke="#34c759" stroke-width="14" stroke-linecap="round" stroke-dasharray="153 364.4" transform="rotate(-90 80 70)"/>
+          <text x="80" y="76" text-anchor="middle" font-size="40" font-weight="700" fill="#e8eaed">42</text>
+          <text x="80" y="96" text-anchor="middle" font-size="12" fill="#8a9099">5 小时 %</text>
+          <text x="80" y="146" text-anchor="middle" font-size="10" fill="#5c626b">2小时13分后重置</text>
+        </svg>
+      </div>
+      <div style="border-top:1px solid #1c2026;padding-top:0">
+        <div class="row" style="margin-top:8px"><div class="top"><span class="lbl">本周 · 周四 14:00 重置</span><span class="num" style="font-size:14px;color:#ffcc00">67%</span></div><div class="bar"><i style="width:67%;background:#ffcc00"></i></div></div>
+        <div class="row" style="margin-top:8px"><div class="top"><span class="lbl">本周 Opus</span><span class="num" style="font-size:14px">12%</span></div><div class="bar"><i style="width:12%;background:#34c759"></i></div></div>
+        <div class="row" style="margin-top:8px"><div class="top"><span class="lbl">本周 Sonnet</span><span class="num" style="font-size:14px">28%</span></div><div class="bar"><i style="width:28%;background:#34c759"></i></div></div>
+      </div>
+      <div class="foot"><span class="dim">Max</span><span class="dim">1 分钟前更新</span></div>
+    </div>
+    <p>突出最常撞上的 5 小时额度，本周和分项放在下面当参考。</p>
+  </div>
+
+</div>
+
+<div class="section" style="max-width:760px;margin:0 auto;font-size:13px;line-height:1.7;color:#8a9099">
+  三版都有的东西（我定的，可改）：右上角三个小点表示现在是第几屏；颜色沿用 CPU 的阈值，低于 50% 绿、50–79% 黄、80% 及以上红；左下角是套餐名，右下角是数据多久前更新的，过期时这里会变成橙色的“已过期，打开 Claude Code 刷新”。
+</div>
