@@ -401,3 +401,17 @@ private let usageSnap = UsageSnapshot(
     // ok 但没有快照（不应出现）→ 按读取失败处理
     #expect(settingsStatus(UsageState(status: .ok, snapshot: nil), now: usageNow) == "读取失败")
 }
+
+@Test func processOutputIsCaptured() {
+    let data = runCapturingStdout("/bin/echo", arguments: ["hello"], timeout: 5)
+    #expect(data.map { String(decoding: $0, as: UTF8.self) } == "hello\n")
+    #expect(runCapturingStdout("/usr/bin/false", arguments: [], timeout: 5) == nil)
+    #expect(runCapturingStdout("/nonexistent/binary", arguments: [], timeout: 5) == nil)
+}
+
+@Test func hungProcessIsTerminatedAfterTimeout() {
+    let start = Date()
+    let data = runCapturingStdout("/bin/sleep", arguments: ["30"], timeout: 0.5)
+    #expect(data == nil)
+    #expect(Date().timeIntervalSince(start) < 5)
+}

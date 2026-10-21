@@ -76,21 +76,44 @@ public func jwtExpiry(_ token: String) -> Date? {
     return Date(timeIntervalSince1970: exp)
 }
 
-/// 用 /usr/bin/security 子进程读取钥匙串里的 Claude Code 凭据。
-/// 会阻塞到子进程退出，别在主线程调用。找不到或格式不对时返回 nil。
-public func readClaudeCredential() -> ClaudeCredential? {
+/// 给 DispatchWorkItem 用的 Process 包装：terminate() 本身线程安全，这里只是让 Swift 6 放行。
+private final class ProcessBox: @unchecked Sendable {
+    let process: Process
+    init(_ process: Process) { self.process = process }
+}
+
+/// 运行子进程并返回 stdout。启动失败、退出码非 0、超过 timeout 秒没退出（会被终止）都返回 nil。
+/// stderr、stdin 都指向 /dev/null。会阻塞到子进程退出，别在主线程调用。
+func runCapturingStdout(_ path: String, arguments: [String], timeout: TimeInterval) -> Data? {
     let process = Process()
-    process.executableURL = URL(fileURLWithPath: "/usr/bin/security")
-    process.arguments = ["find-generic-password", "-s", "Claude Code-credentials", "-w"]
+    process.executableURL = URL(fileURLWithPath: path)
+    process.arguments = arguments
     let out = Pipe()
     process.standardOutput = out
     process.standardError = FileHandle.nullDevice
     process.standardInput = FileHandle.nullDevice
     do { try process.run() } catch { return nil }
+
+    // 超时就终止子进程；进程一死管道就到 EOF，下面的读取也跟着返回
+    let box = ProcessBox(process)
+    let killer = DispatchWorkItem { if box.process.isRunning { box.process.terminate() } }
+    DispatchQueue.global().asyncAfter(deadline: .now() + timeout, execute: killer)
+
     // 先读到 EOF 再等退出，避免输出塞满管道造成死锁
     let data = out.fileHandleForReading.readDataToEndOfFile()
     process.waitUntilExit()
-    guard process.terminationStatus == 0 else { return nil }
+    killer.cancel()
+    guard process.terminationStatus == 0, process.terminationReason == .exit else { return nil }
+    return data
+}
+
+/// 用 /usr/bin/security 子进程读取钥匙串里的 Claude Code 凭据。
+/// 会阻塞（最多约 5 秒，之后终止子进程），别在主线程调用。找不到、超时或格式不对时返回 nil。
+public func readClaudeCredential() -> ClaudeCredential? {
+    guard let data = runCapturingStdout(
+        "/usr/bin/security",
+        arguments: ["find-generic-password", "-s", "Claude Code-credentials", "-w"],
+        timeout: 5) else { return nil }
     return parseClaudeKeychainJSON(data)
 }
 
