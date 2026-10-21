@@ -4,6 +4,10 @@
 
 Mac 上的菜单栏程序 **Sysmon** 每 2 秒采集一次数据，通过 USB 串口发给板子；板子负责画圆环和曲线。不需要 WiFi，也不在 Mac 上开任何端口。
 
+![Sysmon 副屏示意图](docs/images/sysmon-preview.jpg)
+
+<sub>示意图：屏幕内容按固件的实际布局和配色绘制，数据为示例。</sub>
+
 ## 屏幕上有什么
 
 竖屏 240×320，深色背景：
@@ -78,6 +82,7 @@ hw_probe/              硬件探测固件：识别屏幕驱动、触摸芯片和
 touch_diag/            XPT2046 触摸原始信号诊断
 touch_test/            触摸校准与画点测试；board.h 是验证过的屏幕配置
 .superpowers/          设计阶段的界面效果图
+docs/images/           README 示意图及其生成脚本
 ```
 
 ## 开发
