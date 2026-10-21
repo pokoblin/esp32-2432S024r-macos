@@ -178,23 +178,20 @@ static void assertRate(uint32_t bps, const char* num, const char* unit) {
   TEST_ASSERT_EQUAL_STRING(unit, u);
 }
 
+// 默认用 MB/s，约 3 位有效数字；满 1000 MB/s 改用 GB/s
 static void test_format_rate() {
-  assertRate(0, "0", "B/s");
-  assertRate(999, "999", "B/s");
-  assertRate(1000, "0.98", "KB/s");
-  assertRate(880640, "860", "KB/s");
+  assertRate(0, "0.00", "MB/s");
+  assertRate(880640, "0.84", "MB/s");
   assertRate(13002342, "12.4", "MB/s");
   assertRate(157286400, "150", "MB/s");
 }
 
 // 四舍五入后跨档的值要进位，保证最多 3 位有效数字
 static void test_format_rate_rounding_boundaries() {
-  assertRate(10239, "10.0", "KB/s");
-  assertRate(102350, "100", "KB/s");
-  assertRate(1023500, "0.98", "MB/s");
+  assertRate(10480518, "10.0", "MB/s");
+  assertRate(104805172, "100", "MB/s");
 }
 
-// 万兆网会超过 1000 MB/s，换成 GB/s 保持 3 位
 static void test_format_rate_gigabytes() {
   assertRate(1048051712, "0.98", "GB/s");
   assertRate(1610612736, "1.50", "GB/s");
