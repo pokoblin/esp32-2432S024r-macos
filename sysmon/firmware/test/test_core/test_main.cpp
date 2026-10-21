@@ -196,7 +196,7 @@ static void test_format_rate_rounding_boundaries() {
 
 // 万兆网会超过 1000 MB/s，换成 GB/s 保持 3 位
 static void test_format_rate_gigabytes() {
-  assertRate(1047527424, "0.98", "GB/s");
+  assertRate(1048051712, "0.98", "GB/s");
   assertRate(1610612736, "1.50", "GB/s");
   assertRate(4294967295u, "4.00", "GB/s");
 }

@@ -14,7 +14,11 @@ const char* formatRate(uint32_t bytesPerSec, char* num, size_t numLen) {
   double v = bytesPerSec / 1024.0;
   if (v >= 999.5) {
     unit = "MB/s";
-    v = bytesPerSec / (1024.0 * 1024.0);
+    v /= 1024.0;
+  }
+  if (v >= 999.5) {
+    unit = "GB/s";
+    v /= 1024.0;
   }
   const char* fmt = v < 9.995 ? "%.2f" : v < 99.95 ? "%.1f" : "%.0f";
   snprintf(num, numLen, fmt, v);
