@@ -52,7 +52,7 @@ private let fiveHourMinutes = 300
 private let weekMinutes = 10080
 
 /// 套餐名规范化：小写、去空白、只留 ASCII 字母数字和 "-" "_"；空则为 nil。
-private func normalizePlan(_ plan: String?) -> String? {
+func normalizePlan(_ plan: String?) -> String? {
     guard let plan else { return nil }
     let cleaned = plan.lowercased().unicodeScalars.filter {
         $0.isASCII && (CharacterSet.alphanumerics.contains($0) || $0 == "-" || $0 == "_")
@@ -82,7 +82,7 @@ private func jsonObject(_ data: Data) throws -> [String: Any] {
     return obj
 }
 
-private func number(_ v: Any?) -> Double? {
+func number(_ v: Any?) -> Double? {
     // JSONSerialization 的布尔也是 NSNumber，排除掉
     guard let n = v as? NSNumber, CFGetTypeID(n) != CFBooleanGetTypeID() else { return nil }
     return n.doubleValue

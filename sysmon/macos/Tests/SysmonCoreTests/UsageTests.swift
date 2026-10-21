@@ -109,3 +109,67 @@ private func iso(_ s: String) -> Date {
     #expect(UsageService.chatgpt.rawValue == "gpt")
     #expect(UsageService.allCases.count == 2)
 }
+
+// MARK: - 凭据解析（只读）
+
+@Test func parsesClaudeKeychain() {
+    let c = parseClaudeKeychainJSON(Data(UsageFixtures.claudeKeychain.utf8))
+    #expect(c?.accessToken == "sk-ant-oat01-FAKE-ACCESS-TOKEN")
+    #expect(c?.plan == "max")
+    #expect(c?.expiresAt == Date(timeIntervalSince1970: 1_800_000_000_000 / 1000))
+}
+
+@Test func claudeKeychainIgnoresExtraTopLevelKeys() {
+    // 真实钥匙串里除了 claudeAiOauth 还有 mcpOAuth 之类的顶层键
+    let json = #"{"mcpOAuth":{"x":{"accessToken":"other"}},"claudeAiOauth":{"accessToken":"t","expiresAt":1800000000000,"subscriptionType":"Max"}}"#
+    let c = parseClaudeKeychainJSON(Data(json.utf8))
+    #expect(c?.accessToken == "t")
+    #expect(c?.plan == "max")
+}
+
+@Test func parsesCodexAuth() {
+    let c = parseCodexAuthJSON(Data(UsageFixtures.codexAuth.utf8))
+    #expect(c?.accessToken.hasPrefix("eyJ") == true)
+    #expect(c?.expiresAt == Date(timeIntervalSince1970: 1_800_000_000))
+    #expect(c?.accountID == "00000000-0000-0000-0000-000000000000")
+}
+
+@Test func malformedJWTHasUnknownExpiry() {
+    #expect(jwtExpiry("not-a-jwt") == nil)
+    #expect(jwtExpiry("a.e30.c") == nil)   // payload 是 {}，没有 exp
+    #expect(jwtExpiry("a.!!!.c") == nil)   // payload 不是合法 base64
+}
+
+@Test func jwtExpiryHandlesBase64URLPadding() {
+    // {"exp":1800000000} 的 base64url 无 padding 形式
+    #expect(jwtExpiry("h.eyJleHAiOjE4MDAwMDAwMDB9.s") == Date(timeIntervalSince1970: 1_800_000_000))
+    // {"exp":1,"a":"??>>"} 编码后含 "-" 和 "_"
+    let payload = Data(#"{"exp":1,"a":"??>>~~"}"#.utf8).base64EncodedString()
+        .replacingOccurrences(of: "+", with: "-").replacingOccurrences(of: "/", with: "_")
+        .replacingOccurrences(of: "=", with: "")
+    #expect(jwtExpiry("h.\(payload).s") == Date(timeIntervalSince1970: 1))
+}
+
+@Test func credentialDescriptionsHideTokens() {
+    let c = parseClaudeKeychainJSON(Data(UsageFixtures.claudeKeychain.utf8))!
+    #expect(!"\(c)".contains(c.accessToken))
+    let x = parseCodexAuthJSON(Data(UsageFixtures.codexAuth.utf8))!
+    #expect(!"\(x)".contains(x.accessToken))
+}
+
+@Test func missingFieldsGiveNil() {
+    #expect(parseClaudeKeychainJSON(Data("{}".utf8)) == nil)
+    #expect(parseClaudeKeychainJSON(Data("not json".utf8)) == nil)
+    #expect(parseCodexAuthJSON(Data(#"{"tokens":{}}"#.utf8)) == nil)
+    #expect(parseCodexAuthJSON(Data(#"{"tokens":{"access_token":"a"}}"#.utf8)) == nil)   // 缺 account_id
+}
+
+@Test func readCodexCredentialFromHome() throws {
+    let home = FileManager.default.temporaryDirectory.appendingPathComponent("sysmon-test-\(UUID().uuidString)")
+    let dir = home.appendingPathComponent(".codex")
+    try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: home) }
+    #expect(readCodexCredential(home: home) == nil)   // 文件不存在
+    try Data(UsageFixtures.codexAuth.utf8).write(to: dir.appendingPathComponent("auth.json"))
+    #expect(readCodexCredential(home: home)?.accountID == "00000000-0000-0000-0000-000000000000")
+}
