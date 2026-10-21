@@ -14,6 +14,7 @@ static sysmon::LineReader reader;
 static sysmon::ScreenState state;
 static sysmon::History history;
 static bool backlightOn = false;
+static bool uiReady = false;
 
 static constexpr uint8_t BRIGHTNESS = 200;
 
@@ -22,9 +23,14 @@ void setup() {
   lcd.init();
   lcd.setBrightness(0);
   lcd.fillScreen(TFT_BLACK);
+  uiReady = uiBegin(lcd);
+  // 没法画图时常亮显示报错，免得看起来像是没收到数据
+  if (!uiReady) lcd.setBrightness(BRIGHTNESS);
 }
 
 void loop() {
+  if (!uiReady) return;
+
   while (Serial.available() > 0) {
     if (!reader.feed((char)Serial.read())) continue;
 

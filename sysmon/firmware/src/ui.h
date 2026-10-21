@@ -5,4 +5,6 @@
 #include "history.h"
 #include "protocol.h"
 
+// 开机时调用一次：分配画图缓冲；失败时在屏幕和串口上报错并返回 false
+bool uiBegin(LGFX& lcd);
 void uiDraw(LGFX& lcd, const sysmon::Sample& s, const sysmon::History& h);

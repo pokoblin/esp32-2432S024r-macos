@@ -162,18 +162,35 @@ void drawBottom(LGFX_Sprite& sp, const Sample& s, const History& h) {
 
 }  // namespace
 
-void uiDraw(LGFX& lcd, const Sample& s, const History& h) {
-  LGFX_Sprite sp(&lcd);
-  sp.setColorDepth(16);
+// 开机时一次分配、一直复用，避免运行久了堆碎片导致分配失败、半边屏幕画不出来
+static LGFX_Sprite* sprite = nullptr;
 
-  if (sp.createSprite(240, TOP_H)) {
-    drawTop(sp, s);
-    sp.pushSprite(0, 0);
-    sp.deleteSprite();
-  }
-  if (sp.createSprite(240, BOTTOM_H)) {
-    drawBottom(sp, s, h);
-    sp.pushSprite(0, BOTTOM_Y);
-    sp.deleteSprite();
-  }
+bool uiBegin(LGFX& lcd) {
+  sprite = new LGFX_Sprite(&lcd);
+  sprite->setColorDepth(16);
+  if (sprite->createSprite(240, BOTTOM_H)) return true;
+
+  Serial.printf("sysmon: sprite alloc failed, largest DMA block %u\n",
+                (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_DMA));
+  delete sprite;
+  sprite = nullptr;
+  lcd.setFont(&fonts::efontCN_14);
+  lcd.setTextColor(TEXT, BG);
+  lcd.setTextDatum(middle_center);
+  lcd.fillScreen(BG);
+  lcd.drawString("内存不足，无法显示", 120, 160);
+  return false;
+}
+
+void uiDraw(LGFX& lcd, const Sample& s, const History& h) {
+  if (!sprite) return;
+
+  // 缓冲按下块的高度分配；上块只推送前 TOP_H 行
+  drawTop(*sprite, s);
+  lcd.setClipRect(0, 0, 240, TOP_H);
+  sprite->pushSprite(0, 0);
+  lcd.clearClipRect();
+
+  drawBottom(*sprite, s, h);
+  sprite->pushSprite(0, BOTTOM_Y);
 }
