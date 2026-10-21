@@ -22,7 +22,11 @@ public func counterDelta(prev: UInt32, cur: UInt32) -> UInt64 {
 }
 
 /// 由累计计数算每秒速率。新出现的网卡这一轮记 0，消失的网卡直接忽略，避免插拔时出现尖刺。
+/// 网卡在两次采样之间重新枚举时计数会归零，按 32 位回绕会算出接近 4 GB 的增量；
+/// 超过 10 Gbit/s 线速的增量一律视为计数重置，记 0。
 public struct RateMeter: Sendable {
+    private static let maxBytesPerSecond = 1.25e9
+
     private var last: [String: IfCounters]?
 
     public init() {}
@@ -31,12 +35,14 @@ public struct RateMeter: Sendable {
     public mutating func update(_ counters: [String: IfCounters], elapsed: Double) -> (rx: UInt64, tx: UInt64)? {
         defer { last = counters }
         guard let last, elapsed > 0 else { return nil }
+        let ceiling = elapsed * Self.maxBytesPerSecond
+        func plausible(_ delta: UInt64) -> UInt64 { Double(delta) > ceiling ? 0 : delta }
         var rx: UInt64 = 0
         var tx: UInt64 = 0
         for (name, cur) in counters {
             guard let prev = last[name] else { continue }
-            rx += counterDelta(prev: prev.rx, cur: cur.rx)
-            tx += counterDelta(prev: prev.tx, cur: cur.tx)
+            rx += plausible(counterDelta(prev: prev.rx, cur: cur.rx))
+            tx += plausible(counterDelta(prev: prev.tx, cur: cur.tx))
         }
         return (UInt64((Double(rx) / elapsed).rounded()), UInt64((Double(tx) / elapsed).rounded()))
     }

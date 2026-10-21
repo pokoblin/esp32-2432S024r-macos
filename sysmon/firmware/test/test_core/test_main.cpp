@@ -170,6 +170,13 @@ static void test_format_rate() {
   assertRate(157286400, "150", "MB/s");
 }
 
+// 四舍五入后跨档的值要进位，保证最多 3 位有效数字
+static void test_format_rate_rounding_boundaries() {
+  assertRate(10239, "10.0", "KB/s");
+  assertRate(102350, "100", "KB/s");
+  assertRate(1023500, "0.98", "MB/s");
+}
+
 // ---- tones ----
 
 static void test_tones() {
@@ -203,6 +210,7 @@ int main(int, char**) {
   RUN_TEST(test_history_peak_after_evict);
   RUN_TEST(test_history_empty_peak);
   RUN_TEST(test_format_rate);
+  RUN_TEST(test_format_rate_rounding_boundaries);
   RUN_TEST(test_tones);
   return UNITY_END();
 }

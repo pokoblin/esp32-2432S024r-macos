@@ -86,3 +86,15 @@ import Testing
     #expect([1, 2, 4].contains(mem?.level ?? -1))
     #expect(readPhysicalCounters()["en0"] != nil)
 }
+
+@Test func rateMeterIgnoresCounterReset() {
+    // 扩展坞网卡在两次采样之间重新枚举，计数从 50 万掉回 10，不能当成 32 位回绕算出约 2 GB/s
+    var m = RateMeter()
+    _ = m.update(["en7": IfCounters(rx: 500_000, tx: 0)], elapsed: 2)
+    let r = m.update(["en7": IfCounters(rx: 10, tx: 0)], elapsed: 2)
+    #expect(r?.rx == 0)
+    // 真正的回绕仍然照常计算
+    _ = m.update(["en7": IfCounters(rx: UInt32.max - 99, tx: 0)], elapsed: 2)
+    let w = m.update(["en7": IfCounters(rx: 100, tx: 0)], elapsed: 2)
+    #expect(w?.rx == 100)
+}
