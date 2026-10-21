@@ -8,7 +8,7 @@ struct SysmonApp: App {
         MenuBarExtra {
             MenuContent(monitor: monitor, summary: monitor.summary)
         } label: {
-            Image(systemName: monitor.portPath == nil ? "display.trianglebadge.exclamationmark" : "display")
+            Image(nsImage: BoardIcon.image(connected: monitor.portPath != nil))
         }
     }
 }
