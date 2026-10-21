@@ -6,7 +6,9 @@
 #include "line_reader.h"
 #include "protocol.h"
 #include "screen_state.h"
+#include "tap.h"
 #include "tones.h"
+#include "usage_format.h"
 #include "usage_protocol.h"
 
 using namespace sysmon;
@@ -306,6 +308,115 @@ static void test_parse_usage_status_and_reset_state() {
   TEST_ASSERT_EQUAL_STRING("", u.plan);
 }
 
+// ---- usage_format / tap ----
+
+static void test_format_reset_in() {
+  char b[48];
+  formatResetIn(7980, b, sizeof b); TEST_ASSERT_EQUAL_STRING("2小时13分后重置", b);
+  formatResetIn(7200, b, sizeof b); TEST_ASSERT_EQUAL_STRING("2小时0分后重置", b);
+  formatResetIn(3600, b, sizeof b); TEST_ASSERT_EQUAL_STRING("1小时0分后重置", b);
+  formatResetIn(3599, b, sizeof b); TEST_ASSERT_EQUAL_STRING("59分后重置", b);
+  formatResetIn(780, b, sizeof b);  TEST_ASSERT_EQUAL_STRING("13分后重置", b);
+  formatResetIn(60, b, sizeof b);   TEST_ASSERT_EQUAL_STRING("1分后重置", b);
+  formatResetIn(59, b, sizeof b);   TEST_ASSERT_EQUAL_STRING("即将重置", b);
+  formatResetIn(30, b, sizeof b);   TEST_ASSERT_EQUAL_STRING("即将重置", b);
+  formatResetIn(0, b, sizeof b);    TEST_ASSERT_EQUAL_STRING("即将重置", b);
+  formatResetIn(-5, b, sizeof b);   TEST_ASSERT_EQUAL_STRING("即将重置", b);
+  formatResetIn(kAbsent, b, sizeof b); TEST_ASSERT_EQUAL_STRING("即将重置", b);
+}
+static void test_format_week_reset() {
+  char b[48];
+  formatWeekReset(4, 1400, b, sizeof b); TEST_ASSERT_EQUAL_STRING("本周 · 周四 14:00 重置", b);
+  formatWeekReset(7, 905, b, sizeof b);  TEST_ASSERT_EQUAL_STRING("本周 · 周日 09:05 重置", b);
+  formatWeekReset(1, 0, b, sizeof b);    TEST_ASSERT_EQUAL_STRING("本周 · 周一 00:00 重置", b);
+  formatWeekReset(kAbsent, kAbsent, b, sizeof b); TEST_ASSERT_EQUAL_STRING("本周", b);
+  formatWeekReset(4, kAbsent, b, sizeof b);       TEST_ASSERT_EQUAL_STRING("本周", b);
+  formatWeekReset(kAbsent, 1400, b, sizeof b);    TEST_ASSERT_EQUAL_STRING("本周", b);
+}
+static void test_format_ago() {
+  char b[32];
+  formatAgo(30, b, sizeof b);     TEST_ASSERT_EQUAL_STRING("刚刚", b);
+  formatAgo(59, b, sizeof b);     TEST_ASSERT_EQUAL_STRING("刚刚", b);
+  formatAgo(60, b, sizeof b);     TEST_ASSERT_EQUAL_STRING("1 分钟前", b);
+  formatAgo(179, b, sizeof b);    TEST_ASSERT_EQUAL_STRING("2 分钟前", b);
+  formatAgo(180, b, sizeof b);    TEST_ASSERT_EQUAL_STRING("3 分钟前", b);
+  formatAgo(3599, b, sizeof b);   TEST_ASSERT_EQUAL_STRING("59 分钟前", b);
+  formatAgo(3600, b, sizeof b);   TEST_ASSERT_EQUAL_STRING("1 小时前", b);
+  formatAgo(7200, b, sizeof b);   TEST_ASSERT_EQUAL_STRING("2 小时前", b);
+  formatAgo(86399, b, sizeof b);  TEST_ASSERT_EQUAL_STRING("23 小时前", b);
+  formatAgo(86400, b, sizeof b);  TEST_ASSERT_EQUAL_STRING("1 天前", b);
+  formatAgo(432000, b, sizeof b); TEST_ASSERT_EQUAL_STRING("5 天前", b);
+  formatAgo(-1, b, sizeof b);     TEST_ASSERT_EQUAL_STRING("刚刚", b);
+  formatAgo(kAbsent, b, sizeof b); TEST_ASSERT_EQUAL_STRING("刚刚", b);
+}
+static void test_format_footer() {
+  char b[64]; bool warn;
+  Usage u; u.received = true; u.st = UsageStatus::Ok; u.age = 30;
+  formatFooter(u, b, sizeof b, &warn); TEST_ASSERT_EQUAL_STRING("刚刚更新", b); TEST_ASSERT_FALSE(warn);
+  u.age = 180;
+  formatFooter(u, b, sizeof b, &warn); TEST_ASSERT_EQUAL_STRING("3 分钟前更新", b); TEST_ASSERT_FALSE(warn);
+  u.age = kAbsent;
+  formatFooter(u, b, sizeof b, &warn); TEST_ASSERT_EQUAL_STRING("刚刚更新", b); TEST_ASSERT_FALSE(warn);
+  u.st = UsageStatus::Expired; u.svc = Service::Claude;
+  formatFooter(u, b, sizeof b, &warn); TEST_ASSERT_EQUAL_STRING("已过期 · 终端运行 claude", b); TEST_ASSERT_TRUE(warn);
+  u.svc = Service::ChatGPT;
+  formatFooter(u, b, sizeof b, &warn); TEST_ASSERT_EQUAL_STRING("已过期 · 打开 Codex", b); TEST_ASSERT_TRUE(warn);
+  u.st = UsageStatus::Error; u.age = 600;
+  formatFooter(u, b, sizeof b, &warn); TEST_ASSERT_EQUAL_STRING("读取失败 · 10 分钟前的数据", b); TEST_ASSERT_TRUE(warn);
+  u.age = 20;
+  formatFooter(u, b, sizeof b, &warn); TEST_ASSERT_EQUAL_STRING("读取失败 · 刚刚的数据", b); TEST_ASSERT_TRUE(warn);
+  u.age = kAbsent;
+  formatFooter(u, b, sizeof b, &warn); TEST_ASSERT_EQUAL_STRING("读取失败", b); TEST_ASSERT_TRUE(warn);
+  u.st = UsageStatus::Missing;
+  formatFooter(u, b, sizeof b, &warn); TEST_ASSERT_EQUAL_STRING("", b); TEST_ASSERT_FALSE(warn);
+  Usage fresh;
+  warn = true;
+  formatFooter(fresh, b, sizeof b, &warn); TEST_ASSERT_EQUAL_STRING("等待数据", b); TEST_ASSERT_FALSE(warn);
+}
+static void test_format_plan() {
+  char b[12];
+  formatPlan("max", b, sizeof b); TEST_ASSERT_EQUAL_STRING("Max", b);
+  formatPlan("pro", b, sizeof b); TEST_ASSERT_EQUAL_STRING("Pro", b);
+  formatPlan("Plus", b, sizeof b); TEST_ASSERT_EQUAL_STRING("Plus", b);
+  formatPlan("20x", b, sizeof b); TEST_ASSERT_EQUAL_STRING("20x", b);   // 首字符不是字母则原样
+  formatPlan("", b, sizeof b);    TEST_ASSERT_EQUAL_STRING("", b);
+  formatPlan("enterprise", b, 5); TEST_ASSERT_EQUAL_STRING("Ente", b);   // 截断到缓冲区
+}
+static void test_window_label() {
+  TEST_ASSERT_EQUAL_STRING("5 小时", windowLabel(300));
+  TEST_ASSERT_EQUAL_STRING("本周", windowLabel(10080));
+  TEST_ASSERT_EQUAL_STRING("", windowLabel(60));
+}
+static void test_format_tiny_buffer() {
+  // 缓冲区装不下时必须截断且以 NUL 结尾，不越界
+  char b[4];
+  Usage u; u.received = true; u.st = UsageStatus::Ok; u.age = 180;
+  bool warn;
+  memset(b, 'x', sizeof b); formatResetIn(7980, b, 2); TEST_ASSERT_EQUAL_CHAR(0, b[1]); TEST_ASSERT_EQUAL_CHAR('x', b[2]);
+  memset(b, 'x', sizeof b); formatWeekReset(4, 1400, b, 3); TEST_ASSERT_EQUAL_CHAR(0, b[2]); TEST_ASSERT_EQUAL_CHAR('x', b[3]);
+  memset(b, 'x', sizeof b); formatAgo(180, b, 1); TEST_ASSERT_EQUAL_CHAR(0, b[0]); TEST_ASSERT_EQUAL_CHAR('x', b[1]);
+  memset(b, 'x', sizeof b); formatFooter(u, b, 3, &warn); TEST_ASSERT_EQUAL_CHAR(0, b[2]); TEST_ASSERT_EQUAL_CHAR('x', b[3]);
+  memset(b, 'x', sizeof b); formatPlan("max", b, 2); TEST_ASSERT_EQUAL_STRING("M", b); TEST_ASSERT_EQUAL_CHAR('x', b[2]);
+  memset(b, 'x', sizeof b); formatPlan("max", b, 1); TEST_ASSERT_EQUAL_CHAR(0, b[0]); TEST_ASSERT_EQUAL_CHAR('x', b[1]);
+}
+static void test_tap_detector() {
+  TapDetector t;
+  TEST_ASSERT_TRUE(t.update(true, 1000));
+  TEST_ASSERT_FALSE(t.update(true, 1100));   // 按住不放
+  TEST_ASSERT_FALSE(t.update(false, 1150));
+  TEST_ASSERT_FALSE(t.update(true, 1200));   // 距上次不到 300ms
+  TEST_ASSERT_FALSE(t.update(false, 1250));
+  TEST_ASSERT_TRUE(t.update(true, 1300));
+}
+static void test_tap_detector_millis_wrap() {
+  TapDetector t;
+  TEST_ASSERT_TRUE(t.update(true, 0xFFFFFF00u));
+  t.update(false, 0xFFFFFF10u);
+  TEST_ASSERT_FALSE(t.update(true, 0x00000010u));   // 回绕后实际只过了 0x110 ms
+  t.update(false, 0x00000020u);
+  TEST_ASSERT_TRUE(t.update(true, 0x00000100u));
+}
+
 int main(int, char**) {
   UNITY_BEGIN();
   RUN_TEST(test_parse_full_line);
@@ -337,5 +448,14 @@ int main(int, char**) {
   RUN_TEST(test_parse_usage_rejects_and_clamps);
   RUN_TEST(test_parse_usage_more_rejects_and_ranges);
   RUN_TEST(test_parse_usage_status_and_reset_state);
+  RUN_TEST(test_format_reset_in);
+  RUN_TEST(test_format_week_reset);
+  RUN_TEST(test_format_ago);
+  RUN_TEST(test_format_footer);
+  RUN_TEST(test_format_plan);
+  RUN_TEST(test_window_label);
+  RUN_TEST(test_format_tiny_buffer);
+  RUN_TEST(test_tap_detector);
+  RUN_TEST(test_tap_detector_millis_wrap);
   return UNITY_END();
 }
