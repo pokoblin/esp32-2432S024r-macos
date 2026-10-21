@@ -1,40 +1,16 @@
 #include "protocol.h"
 
-#include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
 
+#include "parse_util.h"
+
 namespace sysmon {
 
-namespace {
-
-// 解析 [p, end) 里的十进制整数（允许前导负号）；不是纯数字返回 false。
-bool parseNumber(const char* p, const char* end, long long* out) {
-  if (p == end) return false;
-  bool neg = false;
-  if (*p == '-') {
-    neg = true;
-    if (++p == end) return false;
-  }
-  unsigned long long v = 0;
-  for (; p < end; ++p) {
-    if (!isdigit((unsigned char)*p)) return false;
-    // 超大的数直接饱和，后面再按字段限幅
-    if (v < 1000000000000ULL) v = v * 10 + (unsigned long long)(*p - '0');
-  }
-  *out = neg ? -(long long)v : (long long)v;
-  return true;
-}
-
-bool keyIs(const char* key, size_t len, const char* name) {
-  return strlen(name) == len && strncmp(key, name, len) == 0;
-}
-
-int clampPercent(long long v) { return v < 0 ? 0 : v > 100 ? 100 : (int)v; }
-
-uint32_t clampU32(long long v) { return v < 0 ? 0 : v > 0xFFFFFFFFLL ? 0xFFFFFFFFu : (uint32_t)v; }
-
-}  // namespace
+using detail::clampPercent;
+using detail::clampU32;
+using detail::keyIs;
+using detail::parseNumber;
 
 LineKind parseLine(const char* line, Sample* out) {
   if (strcmp(line, "OFF") == 0) return LineKind::Off;
