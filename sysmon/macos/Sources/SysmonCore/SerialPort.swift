@@ -110,6 +110,9 @@ public final class SerialPort {
         return true
     }
 
+    /// 端口是否还开着；读到 EOF/EIO 或调用过 `close()` 后为 false。供测试观察读路径的收尾。
+    var isOpen: Bool { fd >= 0 }
+
     /// 在 fd 上建主队列的读事件，用非阻塞 read 喂给行缓冲，整行通过 `onLine` 交出去。
     /// 读到 EOF 或 EIO/ENXIO（设备拔出）就关闭端口，之后 `write` 返回 false，由调用方重连。
     public func startReading() {

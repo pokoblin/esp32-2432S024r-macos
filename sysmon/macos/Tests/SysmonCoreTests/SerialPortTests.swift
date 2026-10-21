@@ -59,23 +59,24 @@ import Testing
     close(slave)
 
     var received: [String] = []
-    let gotLine = AsyncStream<Void>.makeStream()
-    port.onLine = { line in
-        received.append(line)
-        gotLine.continuation.yield()
-    }
+    port.onLine = { received.append($0) }
     port.startReading()
 
     let msg = Array("TAP\r\n".utf8)
     #expect(Darwin.write(master, msg, msg.count) == msg.count)
-    for await _ in gotLine.stream { break }
-    #expect(received == ["TAP"])
-
-    // 板子端断开：读到 EOF/EIO，端口判为失联，write 返回 false
-    close(master)
-    for _ in 0..<100 where port.write("x\n") {
+    // 带超时轮询：读路径坏了要失败，不能一直挂着
+    for _ in 0..<150 where received.isEmpty {
         try await Task.sleep(for: .milliseconds(20))
     }
+    #expect(received == ["TAP"])
+
+    // 板子端断开：不能先调 write（write 自己遇到 EIO 也会返回 false），
+    // 要等读路径自己读到 EOF/EIO 并关掉端口，之后 write 才返回 false
+    close(master)
+    for _ in 0..<150 where port.isOpen {
+        try await Task.sleep(for: .milliseconds(20))
+    }
+    #expect(!port.isOpen)
     #expect(port.write("x\n") == false)
     port.close()
 }
