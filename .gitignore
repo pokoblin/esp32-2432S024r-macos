@@ -1,0 +1,6 @@
+ai_docs/
+CLAUDE.md
+.pio/
+backup/
+.superpowers/brainstorm/.last-*
+.superpowers/brainstorm/*/state/
