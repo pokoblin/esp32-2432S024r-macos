@@ -2,14 +2,7 @@ import AppKit
 import ServiceManagement
 import SysmonCore
 
-/// 菜单里的数值摘要单独放一个对象：它每 2 秒变一次，只该刷新菜单内容，
-/// 不该牵动菜单栏图标所在的 scene。
-@MainActor
-final class SummaryModel: ObservableObject {
-    @Published var text = "等待数据…"
-}
-
-/// 每 2 秒采集一次 CPU / 内存压力 / 网速，更新菜单摘要，连上板子时通过串口发给副屏。
+/// 每 2 秒采集一次 CPU / 内存压力 / 网速，连上板子时通过串口发给副屏。
 /// 显示器睡眠、锁屏、切换用户或系统睡眠时发 OFF 并暂停；串口断开后每次触发时自动重连。
 @MainActor
 final class MonitorController: ObservableObject {
@@ -17,7 +10,6 @@ final class MonitorController: ObservableObject {
     @Published private(set) var launchAtLogin = false
     /// 全局快捷键注册失败（例如被别的程序占用），设置窗口据此提示
     @Published private(set) var hotKeyFailed = false
-    let summary = SummaryModel()
     let preferences = Preferences()
     let usage: UsageController
 
@@ -74,7 +66,6 @@ final class MonitorController: ObservableObject {
         guard let sample = sampler.sample(cpu: readCPUTicks(), counters: readPhysicalCounters(),
                                           memory: readMemoryPressure(),
                                           now: ProcessInfo.processInfo.systemUptime) else { return }
-        summary.text = "CPU \(sample.cpu)% · 内存压力 \(sample.mem)% · ↓\(rateText(sample.rx)) ↑\(rateText(sample.tx))"
         // 发送顺序固定：S → P → U。系统状态数据停在用量页时也照常发，曲线才连续
         send([encodeSample(sample)] + pageLines())
     }
@@ -159,10 +150,6 @@ final class MonitorController: ObservableObject {
         portPath = nil
     }
 
-    private func rateText(_ bytesPerSecond: UInt64) -> String {
-        ByteCountFormatter.string(fromByteCount: Int64(bytesPerSecond), countStyle: .memory) + "/s"
-    }
-
     private func setActivity(_ on: Bool) {
         if on, activity == nil {
             activity = ProcessInfo.processInfo.beginActivity(
@@ -181,7 +168,6 @@ final class MonitorController: ObservableObject {
         if wasActive && !gate.active {
             send([offLine])
             sampler.reset()
-            summary.text = "已暂停（显示器睡眠或锁屏）"
             setActivity(false)
         } else if !wasActive && gate.active {
             setActivity(true)
