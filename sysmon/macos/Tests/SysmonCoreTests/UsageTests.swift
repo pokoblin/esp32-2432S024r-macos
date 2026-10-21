@@ -260,3 +260,91 @@ private let protoNow = shanghai.date(from: DateComponents(year: 2026, month: 10,
     #expect(!isTapLine("TAPx"))
     #expect(!isTapLine("rst:0x1 TAP"))
 }
+
+// MARK: - 状态归并、调度、请求
+
+private let t0 = Date(timeIntervalSince1970: 1_000_000)
+private let usageNow = Date(timeIntervalSince1970: 1_000_000)
+private let usageSnap = UsageSnapshot(
+    plan: "max",
+    fiveHour: UsageWindow(percent: 42, resetsAt: usageNow + 3600, minutes: 300),
+    week: UsageWindow(percent: 67, resetsAt: usageNow + 86400, minutes: 10080),
+    fetchedAt: usageNow)
+
+@Test func reduceKeepsSnapshotOnFailure() {
+    let snap = usageSnap
+    let ok = reduce(UsageState(), .success(snap))
+    #expect(ok == UsageState(status: .ok, snapshot: snap))
+    #expect(reduce(ok, .unauthorized) == UsageState(status: .expired, snapshot: snap))
+    #expect(reduce(ok, .credentialExpired).status == .expired)
+    #expect(reduce(ok, .failed) == UsageState(status: .error, snapshot: snap))
+    #expect(reduce(ok, .rateLimited).status == .error)
+    #expect(reduce(ok, .noCredential) == UsageState(status: .expired, snapshot: snap))   // 以前成功过 → 当作过期
+    #expect(reduce(UsageState(), .noCredential) == UsageState(status: .missing, snapshot: nil))
+    #expect(reduce(UsageState(), .credentialExpired) == UsageState(status: .expired, snapshot: nil))
+}
+
+@Test func scheduleIntervalAndBackoff() {
+    var s = UsageSchedule()
+    #expect(s.isDue(now: t0))
+    s.record(.success(usageSnap), now: t0)
+    #expect(!s.isDue(now: t0 + 119))
+    #expect(s.isDue(now: t0 + 120))
+    s.record(.rateLimited, now: t0 + 120)
+    #expect(!s.isDue(now: t0 + 719))
+    #expect(s.isDue(now: t0 + 720))
+    s.forceNext()
+    #expect(s.isDue(now: t0 + 121))
+}
+
+@Test func statusClassification() {
+    #expect(classify(statusCode: 200) == nil)
+    #expect(classify(statusCode: 204) == nil)
+    #expect(classify(statusCode: 401) == .unauthorized)
+    #expect(classify(statusCode: 403) == .unauthorized)
+    #expect(classify(statusCode: 429) == .rateLimited)
+    #expect(classify(statusCode: 500) == .failed)
+    #expect(classify(statusCode: 302) == .failed)
+}
+
+@Test func requestsCarryRequiredHeaders() {
+    let claudeCred = ClaudeCredential(accessToken: "fake-claude", expiresAt: usageNow + 3600, plan: "max")
+    let codexCred = CodexCredential(accessToken: "fake-codex", accountID: "acct-123")
+    let r = claudeUsageRequest(claudeCred)
+    #expect(r.url?.absoluteString == "https://api.anthropic.com/api/oauth/usage")
+    #expect(r.httpMethod == "GET")
+    #expect(r.value(forHTTPHeaderField: "anthropic-beta") == "oauth-2025-04-20")
+    #expect(r.value(forHTTPHeaderField: "Authorization") == "Bearer fake-claude")
+    #expect(r.value(forHTTPHeaderField: "User-Agent") == "Sysmon")
+    #expect(r.value(forHTTPHeaderField: "Accept") == "application/json")
+    #expect(r.timeoutInterval == 15)
+    let c = codexUsageRequest(codexCred)
+    #expect(c.url?.absoluteString == "https://chatgpt.com/backend-api/wham/usage")
+    #expect(c.httpMethod == "GET")
+    #expect(c.value(forHTTPHeaderField: "ChatGPT-Account-Id") == codexCred.accountID)
+    #expect(c.value(forHTTPHeaderField: "Authorization") == "Bearer fake-codex")
+    #expect(c.value(forHTTPHeaderField: "User-Agent") == "Sysmon")
+    #expect(c.value(forHTTPHeaderField: "Accept") == "application/json")
+    #expect(c.timeoutInterval == 15)
+}
+
+@Test func menuSummaryText() {
+    let snap = usageSnap
+    #expect(menuSummary(.claude, UsageState(status: .ok, snapshot: snap), now: usageNow) == "Claude 5小时 42% · 本周 67%")
+    #expect(menuSummary(.chatgpt, UsageState(status: .expired, snapshot: snap), now: usageNow) == "ChatGPT 已过期")
+    #expect(menuSummary(.claude, UsageState(status: .error, snapshot: snap), now: usageNow) == "Claude 读取失败")
+    #expect(menuSummary(.claude, UsageState(), now: usageNow) == "Claude 未登录")
+}
+
+@Test func menuSummaryShowsDashesForResetOrMissingWindows() {
+    // 5 小时窗口已重置 → "--"；本周缺失 → "--"
+    let snap = UsageSnapshot(
+        fiveHour: UsageWindow(percent: 42, resetsAt: usageNow - 1, minutes: 300),
+        fetchedAt: usageNow - 600)
+    #expect(menuSummary(.chatgpt, UsageState(status: .ok, snapshot: snap), now: usageNow) == "ChatGPT 5小时 -- · 本周 --")
+    // 没有 resetsAt 的窗口照常显示百分比
+    let noReset = UsageSnapshot(fiveHour: UsageWindow(percent: 9), week: UsageWindow(percent: 100), fetchedAt: usageNow)
+    #expect(menuSummary(.claude, UsageState(status: .ok, snapshot: noReset), now: usageNow) == "Claude 5小时 9% · 本周 100%")
+    // ok 但没有快照（不应出现）→ 按读取失败处理
+    #expect(menuSummary(.claude, UsageState(status: .ok, snapshot: nil), now: usageNow) == "Claude 读取失败")
+}
