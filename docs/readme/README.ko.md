@@ -1,3 +1,5 @@
+<p align="center"><img src="../images/icon.png" width="128" alt="Sysmon icon"></p>
+
 # Sysmon: ESP32-2432S024R로 만드는 Mac 상태 화면
 
 [English](../../README.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | **한국어** | [Español](README.es.md) | [Français](README.fr.md) | [Deutsch](README.de.md) | [Português (Brasil)](README.pt-BR.md) | [Русский](README.ru.md)
@@ -75,7 +77,14 @@ ESP32-2432S024R(2.4인치 ST7789 보드, 일명 "Cheap Yellow Display")을 모�
 - 보드는 WCH(CH340) USB 벤더 ID로 찾으며, 다시 꽂으면 자동으로 재연결됩니다. 포트를 열거나 닫아도 보드가 리셋되지 않습니다.
 - CPU 사용률은 0%에 가깝게 유지됩니다.
 
-<!-- 메뉴와 설정 창의 스크린샷은 여기에 넣습니다. 예: ../images/macos-menu.png, ../images/macos-settings.png -->
+<p align="center">
+  <img src="../images/macos-settings-general.png" width="49%" alt="Settings: General">
+  <img src="../images/macos-settings-pomodoro.png" width="49%" alt="Settings: Pomodoro">
+</p>
+<p align="center">
+  <img src="../images/macos-settings-reminders.png" width="49%" alt="Settings: Reminders">
+  <img src="../images/macos-settings-usage.png" width="49%" alt="Settings: Usage">
+</p>
 
 ### 사용량 데이터의 출처
 
@@ -184,6 +193,7 @@ sysmon/
                          page order, pomodoro and reminder rules, localization
     Sources/Sysmon/      SwiftUI menu bar UI, Settings, About, global shortcuts
     scripts/bundle.sh    build and install the .app
+    scripts/make_icon.sh     compiles the app icon from AppIcon.icon (Icon Composer)
   tools/fake_feed.py   fake data for the board, no Mac app needed
   tools/make_banner_font.swift  generates the banner title font
 hw_probe/              hardware probe firmware: display driver, touch chip and pins

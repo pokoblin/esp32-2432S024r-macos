@@ -1,3 +1,5 @@
+<p align="center"><img src="../images/icon.png" width="128" alt="Sysmon icon"></p>
+
 # Sysmon：ESP32-2432S024R 上的 Mac 系统状态副屏
 
 [English](../../README.md) | **简体中文** | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Español](README.es.md) | [Français](README.fr.md) | [Deutsch](README.de.md) | [Português (Brasil)](README.pt-BR.md) | [Русский](README.ru.md)
@@ -75,7 +77,14 @@
 - 它按 WCH（CH340）的 USB 厂商 ID 找板子，重新插拔后自动重连。打开或关闭串口都不会让板子复位。
 - CPU 占用接近 0%。
 
-<!-- 菜单和设置窗口的截图放在这里，例如 ../images/macos-menu.png 和 ../images/macos-settings.png -->
+<p align="center">
+  <img src="../images/macos-settings-general.png" width="49%" alt="Settings: General">
+  <img src="../images/macos-settings-pomodoro.png" width="49%" alt="Settings: Pomodoro">
+</p>
+<p align="center">
+  <img src="../images/macos-settings-reminders.png" width="49%" alt="Settings: Reminders">
+  <img src="../images/macos-settings-usage.png" width="49%" alt="Settings: Usage">
+</p>
 
 ### 用量数据从哪来
 
@@ -184,6 +193,7 @@ sysmon/
                          页面顺序、番茄与提醒规则、本地化
     Sources/Sysmon/      SwiftUI 菜单栏界面、设置、关于、全局快捷键
     scripts/bundle.sh    构建并安装 .app
+    scripts/make_icon.sh     从 AppIcon.icon（Icon Composer 格式）编译 App 图标
   tools/fake_feed.py   给板子发模拟数据，不需要 Mac 端程序
   tools/make_banner_font.swift  生成横幅标题字体
 hw_probe/              硬件探测固件：屏幕驱动、触摸芯片和引脚

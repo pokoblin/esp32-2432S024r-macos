@@ -1,3 +1,5 @@
+<p align="center"><img src="../images/icon.png" width="128" alt="Sysmon icon"></p>
+
 # Sysmon：ESP32-2432S024R で作る Mac のステータス画面
 
 [English](../../README.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | **日本語** | [한국어](README.ko.md) | [Español](README.es.md) | [Français](README.fr.md) | [Deutsch](README.de.md) | [Português (Brasil)](README.pt-BR.md) | [Русский](README.ru.md)
@@ -75,7 +77,14 @@ ESP32-2432S024R（2.4 インチ ST7789 搭載ボード、通称「Cheap Yellow D
 - WCH（CH340）の USB ベンダー ID でボードを見つけ、抜き差ししても再接続します。ポートを開閉してもボードがリセットされることはありません。
 - CPU 使用率は 0% に近いままです。
 
-<!-- メニューと設定ウインドウのスクリーンショットはここに入れます。例：../images/macos-menu.png、../images/macos-settings.png -->
+<p align="center">
+  <img src="../images/macos-settings-general.png" width="49%" alt="Settings: General">
+  <img src="../images/macos-settings-pomodoro.png" width="49%" alt="Settings: Pomodoro">
+</p>
+<p align="center">
+  <img src="../images/macos-settings-reminders.png" width="49%" alt="Settings: Reminders">
+  <img src="../images/macos-settings-usage.png" width="49%" alt="Settings: Usage">
+</p>
 
 ### 使用量データの取得元
 
@@ -184,6 +193,7 @@ sysmon/
                          ページ順、ポモドーロとリマインダーのルール、ローカライズ
     Sources/Sysmon/      SwiftUI のメニューバー UI、設定、Sysmon について、グローバルショートカット
     scripts/bundle.sh    .app のビルドとインストール
+    scripts/make_icon.sh     AppIcon.icon（Icon Composer 形式）からアプリアイコンをコンパイル
   tools/fake_feed.py   ボード用のダミーデータ送信。Mac アプリは不要
   tools/make_banner_font.swift  バナータイトル用フォントの生成
 hw_probe/              ハードウェア調査用ファームウェア：ディスプレイドライバ、タッチチップ、ピン

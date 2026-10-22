@@ -8,8 +8,10 @@ swift build -c release
 
 APP=build/Sysmon.app
 rm -rf "$APP"
-mkdir -p "$APP/Contents/MacOS"
+mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$(swift build -c release --show-bin-path)/Sysmon" "$APP/Contents/MacOS/Sysmon"
+# 图标由 scripts/make_icon.sh 从 AppIcon.icon 编译：Assets.car 给 macOS 26 起的 Liquid Glass 图标，icns 给旧系统
+cp Resources/Assets.car Resources/AppIcon.icns "$APP/Contents/Resources/"
 
 cat > "$APP/Contents/Info.plist" <<'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
@@ -19,6 +21,8 @@ cat > "$APP/Contents/Info.plist" <<'EOF'
   <key>CFBundleIdentifier</key><string>io.github.pokoblin.sysmon</string>
   <key>CFBundleName</key><string>Sysmon</string>
   <key>CFBundleExecutable</key><string>Sysmon</string>
+  <key>CFBundleIconFile</key><string>AppIcon</string>
+  <key>CFBundleIconName</key><string>AppIcon</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>0.3.0</string>
   <key>CFBundleVersion</key><string>1</string>

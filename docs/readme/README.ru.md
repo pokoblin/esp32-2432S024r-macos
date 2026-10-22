@@ -1,3 +1,5 @@
+<p align="center"><img src="../images/icon.png" width="128" alt="Sysmon icon"></p>
+
 # Sysmon: экран состояния Mac на ESP32-2432S024R
 
 [English](../../README.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Español](README.es.md) | [Français](README.fr.md) | [Deutsch](README.de.md) | [Português (Brasil)](README.pt-BR.md) | **Русский**
@@ -75,7 +77,14 @@
 - Плата находится по USB-идентификатору производителя WCH (CH340) и подключается заново после переподключения. Открытие и закрытие порта никогда не сбрасывает плату.
 - Нагрузка на CPU остаётся близкой к 0%.
 
-<!-- Скриншоты меню и окна настроек вставляются сюда, например ../images/macos-menu.png и ../images/macos-settings.png -->
+<p align="center">
+  <img src="../images/macos-settings-general.png" width="49%" alt="Settings: General">
+  <img src="../images/macos-settings-pomodoro.png" width="49%" alt="Settings: Pomodoro">
+</p>
+<p align="center">
+  <img src="../images/macos-settings-reminders.png" width="49%" alt="Settings: Reminders">
+  <img src="../images/macos-settings-usage.png" width="49%" alt="Settings: Usage">
+</p>
 
 ### Откуда берутся данные о лимитах
 
@@ -184,6 +193,7 @@ sysmon/
                          page order, pomodoro and reminder rules, localization
     Sources/Sysmon/      SwiftUI menu bar UI, Settings, About, global shortcuts
     scripts/bundle.sh    build and install the .app
+    scripts/make_icon.sh     compiles the app icon from AppIcon.icon (Icon Composer)
   tools/fake_feed.py   fake data for the board, no Mac app needed
   tools/make_banner_font.swift  generates the banner title font
 hw_probe/              hardware probe firmware: display driver, touch chip and pins

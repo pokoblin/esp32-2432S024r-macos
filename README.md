@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/images/icon.png" width="128" alt="Sysmon icon"></p>
+
 # Sysmon: a Mac status screen on an ESP32-2432S024R
 
 **English** | [简体中文](docs/readme/README.zh-CN.md) | [繁體中文](docs/readme/README.zh-TW.md) | [日本語](docs/readme/README.ja.md) | [한국어](docs/readme/README.ko.md) | [Español](docs/readme/README.es.md) | [Français](docs/readme/README.fr.md) | [Deutsch](docs/readme/README.de.md) | [Português (Brasil)](docs/readme/README.pt-BR.md) | [Русский](docs/readme/README.ru.md)
@@ -75,7 +77,14 @@ Whatever screen you're on, a banner takes over the whole screen and the RGB ligh
 - It finds the board by the WCH (CH340) USB vendor ID and reconnects after replugging. Opening or closing the port never resets the board.
 - CPU usage stays close to 0%.
 
-<!-- Screenshots of the menu and the Settings window go here, e.g. docs/images/macos-menu.png and docs/images/macos-settings.png -->
+<p align="center">
+  <img src="docs/images/macos-settings-general.png" width="49%" alt="Settings: General">
+  <img src="docs/images/macos-settings-pomodoro.png" width="49%" alt="Settings: Pomodoro">
+</p>
+<p align="center">
+  <img src="docs/images/macos-settings-reminders.png" width="49%" alt="Settings: Reminders">
+  <img src="docs/images/macos-settings-usage.png" width="49%" alt="Settings: Usage">
+</p>
 
 ### Where usage data comes from
 
@@ -184,6 +193,7 @@ sysmon/
                          page order, pomodoro and reminder rules, localization
     Sources/Sysmon/      SwiftUI menu bar UI, Settings, About, global shortcuts
     scripts/bundle.sh    build and install the .app
+    scripts/make_icon.sh     compiles the app icon from AppIcon.icon (Icon Composer)
   tools/fake_feed.py   fake data for the board, no Mac app needed
   tools/make_banner_font.swift  generates the banner title font
 hw_probe/              hardware probe firmware: display driver, touch chip and pins

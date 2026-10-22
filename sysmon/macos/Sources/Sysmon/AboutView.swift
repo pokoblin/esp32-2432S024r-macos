@@ -1,7 +1,7 @@
 import SwiftUI
 import SysmonCore
 
-/// 关于窗口：图标、名字、版本号、一句简介和 GitHub 地址。
+/// 关于窗口：App 图标、名字、版本号、一句简介和 GitHub 地址。
 /// 版本号从程序包的 Info.plist 读（由 scripts/bundle.sh 写入），直接 swift run 时显示 dev。
 struct AboutView: View {
     @ObservedObject var preferences: Preferences
@@ -14,11 +14,10 @@ struct AboutView: View {
     var body: some View {
         let s = preferences.strings
         VStack(spacing: 10) {
-            Image(nsImage: BoardIcon.image(connected: true, strings: s))
+            // 程序包里的 App 图标（scripts/make_icon.swift 生成）
+            Image(nsImage: NSApp.applicationIconImage)
                 .resizable()
-                .renderingMode(.template)
-                .frame(width: 64, height: 64)
-                .foregroundStyle(.secondary)
+                .frame(width: 96, height: 96)
             Text("Sysmon")
                 .font(.title2.bold())
             Text(s(.aboutVersion, version))
