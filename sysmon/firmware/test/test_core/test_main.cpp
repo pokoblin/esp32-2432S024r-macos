@@ -1,6 +1,7 @@
 #include <unity.h>
 #include <string.h>
 
+#include "banner_glyphs.h"
 #include "breathe.h"
 #include "format.h"
 #include "history.h"
@@ -627,6 +628,23 @@ static void test_scale_rgb_and_colors() {
   TEST_ASSERT_TRUE(done.g > done.r && done.g > done.b);
 }
 
+// 横幅标题的每个字都要在小字库里，否则板子上会画成空白
+static void test_banner_titles_covered_by_font() {
+  const BannerKind kinds[] = {BannerKind::FocusDone, BannerKind::BreakEnded, BannerKind::Sit, BannerKind::Water};
+  for (BannerKind k : kinds) {
+    const char* p = bannerTitle(k);
+    TEST_ASSERT_TRUE(*p != '\0');
+    while (*p) {
+      // 按 UTF-8 首字节算出这个字占几个字节
+      size_t n = ((unsigned char)*p < 0x80) ? 1 : ((unsigned char)*p < 0xE0) ? 2 : ((unsigned char)*p < 0xF0) ? 3 : 4;
+      char one[5] = {};
+      memcpy(one, p, n);
+      TEST_ASSERT_NOT_NULL_MESSAGE(strstr(kBannerGlyphs, one), one);
+      p += n;
+    }
+  }
+}
+
 int main(int, char**) {
   UNITY_BEGIN();
   RUN_TEST(test_parse_full_line);
@@ -683,5 +701,6 @@ int main(int, char**) {
   RUN_TEST(test_banner_texts);
   RUN_TEST(test_breathe_level);
   RUN_TEST(test_scale_rgb_and_colors);
+  RUN_TEST(test_banner_titles_covered_by_font);
   return UNITY_END();
 }
