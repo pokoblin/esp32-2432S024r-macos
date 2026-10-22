@@ -6,7 +6,7 @@ struct SysmonApp: App {
 
     var body: some Scene {
         MenuBarExtra {
-            MenuContent(monitor: monitor)
+            MenuContent(monitor: monitor, routine: monitor.routine)
         } label: {
             Image(nsImage: BoardIcon.image(connected: monitor.portPath != nil))
         }
@@ -17,13 +17,18 @@ struct SysmonApp: App {
     }
 }
 
-/// 菜单内容单独成视图：连接状态，然后是「设置…」和「退出」。
+/// 菜单内容单独成视图：连接状态、番茄钟，然后是「设置…」和「退出」。
 struct MenuContent: View {
     @ObservedObject var monitor: MonitorController
+    @ObservedObject var routine: RoutineController
     @Environment(\.openSettings) private var openSettings
 
     var body: some View {
         Text(monitor.portPath.map { "已连接 \($0)" } ?? "未找到设备")
+        Divider()
+        // routine 每 2 秒发布一次，菜单开着时这一行也跟着走
+        Text(routine.menuStatus(now: Date()))
+        pomodoroButtons
         Divider()
         // 菜单栏程序没有 Dock 图标：每次点击都先激活 App 再打开设置，窗口才会成为 key 并在最前
         // （用 SettingsLink 的话菜单项上的手势不会触发，也就没法在点击时激活）
@@ -34,6 +39,24 @@ struct MenuContent: View {
         Divider()
         Button("退出") { NSApplication.shared.terminate(nil) }
             .keyboardShortcut("q")
+    }
+}
+
+extension MenuContent {
+    /// 按当前状态只列出能用的操作。
+    @ViewBuilder private var pomodoroButtons: some View {
+        let p = routine.routine.pomodoro
+        if p.phase == .idle {
+            Button("开始专注") { routine.start() }
+        } else {
+            if p.isRunning {
+                Button("暂停") { routine.pause() }
+            } else {
+                Button("继续") { routine.resume() }
+            }
+            Button("跳过") { routine.skip() }
+        }
+        Button("重置轮次") { routine.resetRound() }
     }
 }
 

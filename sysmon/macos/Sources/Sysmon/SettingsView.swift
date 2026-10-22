@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 import SysmonCore
 
-/// 设置窗口：切屏快捷键、两块用量屏的开关、数据来源说明、开机启动。
+/// 设置窗口：切屏快捷键、番茄钟、健康提醒、RGB 灯、两块用量屏的开关、数据来源说明、开机启动。
 struct SettingsView: View {
     @ObservedObject var monitor: MonitorController
     @ObservedObject var preferences: Preferences
@@ -19,7 +19,51 @@ struct SettingsView: View {
                     Text("这个快捷键被占用了，换一个")
                         .foregroundStyle(.red)
                 }
+                if monitor.hotKeyConflict {
+                    Text("和另一个快捷键重复了，换一个")
+                        .foregroundStyle(.red)
+                }
                 Text("也可以直接点一下副屏")
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("番茄钟") {
+                Toggle("番茄屏", isOn: Binding(
+                    get: { preferences.pomodoroEnabled },
+                    set: { monitor.setPomodoroEnabled($0) }
+                ))
+                LabeledContent("开始 / 暂停") {
+                    HotKeyRecorder(combo: Binding(
+                        get: { preferences.pomodoroHotKey },
+                        set: { monitor.setPomodoroHotKey($0) }
+                    ))
+                }
+                if monitor.pomodoroHotKeyFailed {
+                    Text("这个快捷键被占用了，换一个")
+                        .foregroundStyle(.red)
+                }
+                minutesStepper("专注", \.pomodoroConfig.focusMinutes, 5...90, unit: "分钟")
+                minutesStepper("短休", \.pomodoroConfig.shortBreakMinutes, 1...30, unit: "分钟")
+                minutesStepper("长休", \.pomodoroConfig.longBreakMinutes, 1...60, unit: "分钟")
+                minutesStepper("每轮", \.pomodoroConfig.rounds, 2...8, unit: "个")
+            }
+
+            Section("健康提醒") {
+                Toggle("久坐提醒", isOn: configBinding(\.healthConfig.sitEnabled))
+                if preferences.healthConfig.sitEnabled {
+                    minutesStepper("每隔", \.healthConfig.sitMinutes, 10...180, unit: "分钟")
+                }
+                Toggle("喝水提醒", isOn: configBinding(\.healthConfig.waterEnabled))
+                if preferences.healthConfig.waterEnabled {
+                    minutesStepper("每隔", \.healthConfig.waterMinutes, 10...180, unit: "分钟")
+                }
+                Text("离开电脑 5 分钟就算起来过；专注时不打扰，休息时再提醒")
+                    .foregroundStyle(.secondary)
+            }
+
+            Section {
+                Toggle("RGB 灯", isOn: $preferences.ledEnabled)
+                Text("横幅出现时板子背面的灯会跟着呼吸")
                     .foregroundStyle(.secondary)
             }
 
@@ -44,6 +88,23 @@ struct SettingsView: View {
         .formStyle(.grouped)
         .frame(width: 440)
         .fixedSize(horizontal: false, vertical: true)
+    }
+
+    /// 设置项的绑定：改完同步进番茄钟和健康提醒（正在走的这一段不受影响）。
+    private func configBinding<T>(_ path: ReferenceWritableKeyPath<Preferences, T>) -> Binding<T> {
+        Binding(
+            get: { preferences[keyPath: path] },
+            set: {
+                preferences[keyPath: path] = $0
+                monitor.routine.applyConfig()
+            }
+        )
+    }
+
+    private func minutesStepper(_ title: String, _ path: ReferenceWritableKeyPath<Preferences, Int>,
+                                _ range: ClosedRange<Int>, unit: String) -> some View {
+        let value = configBinding(path)
+        return Stepper("\(title) \(value.wrappedValue) \(unit)", value: value, in: range)
     }
 
     private func usageToggle(_ title: String, _ service: UsageService, isOn: Bool) -> some View {
