@@ -134,7 +134,7 @@ struct HotKeyRecorder: View {
 
     var body: some View {
         HStack {
-            Button(recording ? "按下快捷键…（Esc 取消）" : (combo?.display ?? "点击录制")) {
+            Button(recording ? "请按下组合键…（Esc 取消）" : (combo.map { "\($0.display)（点击更改）" } ?? "点击设置快捷键")) {
                 recording ? stop() : start()
             }
             Button("清除") {

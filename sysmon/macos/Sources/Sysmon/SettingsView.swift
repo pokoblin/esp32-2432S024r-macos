@@ -32,13 +32,16 @@ struct SettingsView: View {
 
     @ViewBuilder private var general: some View {
         Section("切换副屏") {
-            HotKeyRecorder(combo: Binding(
-                get: { preferences.hotKey },
-                set: { monitor.setHotKey($0) }
-            ))
+            LabeledContent("快捷键") {
+                HotKeyRecorder(combo: Binding(
+                    get: { preferences.hotKey },
+                    set: { monitor.setHotKey($0) }
+                ))
+            }
             hotKeyWarnings(failed: monitor.hotKeyFailed, conflict: monitor.pageHotKeyConflict)
-            Text("也可以直接点一下副屏")
+            Text("按下这个快捷键就切到下一屏，也可以直接点一下副屏")
                 .foregroundStyle(.secondary)
+            hotKeyHelp
         }
 
         Section {
@@ -61,13 +64,16 @@ struct SettingsView: View {
                 get: { preferences.pomodoroEnabled },
                 set: { monitor.setPomodoroEnabled($0) }
             ))
-            LabeledContent("开始 / 暂停") {
+            LabeledContent("开始 / 暂停快捷键") {
                 HotKeyRecorder(combo: Binding(
                     get: { preferences.pomodoroHotKey },
                     set: { monitor.setPomodoroHotKey($0) }
                 ))
             }
             hotKeyWarnings(failed: monitor.pomodoroHotKeyFailed, conflict: monitor.pomodoroHotKeyConflict)
+            Text("没开始时按一下开始专注，走着时暂停，暂停时继续")
+                .foregroundStyle(.secondary)
+            hotKeyHelp
         }
 
         Section("时长") {
@@ -112,6 +118,13 @@ struct SettingsView: View {
             Text("代价是：一段时间没用它们，登录就会过期，副屏会停在最后一次的数字上并标成“已过期”。Claude 在终端里运行一次 `claude` 就能恢复；ChatGPT 打开一次 Codex 就能恢复。")
         }
         .foregroundStyle(.secondary)
+    }
+
+    /// 录制框的用法说明
+    private var hotKeyHelp: some View {
+        Text("设置方法：点击右边的按钮，再按下想用的组合键，要包含 ⌃、⌥ 或 ⌘ 之一")
+            .font(.caption)
+            .foregroundStyle(.secondary)
     }
 
     @ViewBuilder private func hotKeyWarnings(failed: Bool, conflict: Bool) -> some View {
