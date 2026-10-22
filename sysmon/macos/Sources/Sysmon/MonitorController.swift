@@ -213,6 +213,8 @@ final class MonitorController: ObservableObject {
         let wasActive = gate.active
         change(&gate)
         if wasActive && !gate.active {
+            // 立刻记下熄屏时刻：合盖时系统马上就睡，等不到下一次定时器
+            routine.tick(gateActive: false)
             send([offLine])
             sampler.reset()
             setActivity(false)

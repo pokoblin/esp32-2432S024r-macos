@@ -29,7 +29,9 @@ public enum PomodoroEvent: Equatable, Sendable {
 /// 番茄钟状态机。时间都从外面传进来，按真实时间走：记“预计结束时刻”，暂停时记剩余秒数。
 /// 只有专注要手动开始；专注走完自动进入休息，休息走完回到空闲。
 public struct Pomodoro: Equatable, Sendable {
-    public var config: PomodoroConfig
+    public var config: PomodoroConfig {
+        didSet { clampRound() }
+    }
     public private(set) var phase: PomodoroPhase = .idle
     public private(set) var isRunning = false
     /// 从 1 起；专注和空闲时是当前或下一个，休息时是刚做完的那个
@@ -153,5 +155,11 @@ public struct Pomodoro: Equatable, Sendable {
             round = 1
             restartRoundPending = false
         }
+        clampRound()
+    }
+
+    /// 每轮个数改小后，轮次不能超过它（否则会显示“已完成 5/4”）
+    private mutating func clampRound() {
+        round = min(round, max(1, config.rounds))
     }
 }

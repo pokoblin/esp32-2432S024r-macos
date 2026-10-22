@@ -438,3 +438,41 @@ private func secondFocus() -> (Pomodoro, Date) {
     #expect(!hotKeyConflicts(keyCode: 35, modifiers: 2304, otherKeyCode: 35, otherModifiers: 256))
     #expect(!hotKeyConflicts(keyCode: 35, modifiers: 2304, otherKeyCode: nil, otherModifiers: nil))
 }
+
+// MARK: - 审查补充：合盖过夜、改小每轮个数
+
+@Test func overnightSleepWithoutTickAtCloseExpiresBreakEnded() {
+    // 合盖时赶不上 tick：醒来第一次 tick 已经是 7 小时后（锁屏中），10 秒后解锁（t0 是上海 16:00，不跨零点）
+    var r = Routine()
+    r.tick(now: t0, idleSeconds: 0, gateActive: true, calendar: shanghai)
+    r.start(now: t0)
+    r.tick(now: t0 + 7 * 3600, idleSeconds: 0, gateActive: false, calendar: shanghai)
+    r.tick(now: t0 + 7 * 3600 + 10, idleSeconds: 0, gateActive: true, calendar: shanghai)
+    #expect(r.banner == nil && r.stats.count == 1)
+}
+
+@Test func overnightSleepWakingUnlockedExpiresBreakEnded() {
+    // 关闭时打过点，醒来不锁屏，gate 直接打开
+    var r = Routine()
+    r.tick(now: t0, idleSeconds: 0, gateActive: true, calendar: shanghai)
+    r.start(now: t0)
+    r.tick(now: t0 + 60, idleSeconds: 0, gateActive: false, calendar: shanghai)
+    r.tick(now: t0 + 8 * 3600, idleSeconds: 0, gateActive: true, calendar: shanghai)
+    #expect(r.banner == nil)
+}
+
+@Test func loweringRoundsClampsRound() {
+    var p = Pomodoro()
+    var now = t0
+    for _ in 1...2 {
+        p.start(now: now)
+        now += 1800
+        _ = p.advance(now: now)
+    }
+    #expect(p.phase == .idle && p.round == 3)
+    p.config.rounds = 2
+    #expect(p.round == 2)
+    p.start(now: now)
+    _ = p.advance(now: now + 1500)
+    #expect(p.phase == .long)
+}

@@ -67,16 +67,6 @@ public struct Routine: Equatable, Sendable {
             pomodoro.restartRoundWhenIdle()
         }
 
-        if !gateActive {
-            if gateClosedAt == nil { gateClosedAt = now }
-        } else if let closed = gateClosedAt {
-            gateClosedAt = nil
-            if now.timeIntervalSince(closed) >= Self.gateExpiry {
-                breakEndedPending = false
-                health.acknowledge(.water)
-            }
-        }
-
         for event in pomodoro.advance(now: now) {
             switch event {
             case let .focusCompleted(seconds, at):
@@ -88,9 +78,21 @@ public struct Routine: Equatable, Sendable {
                 let extras = health.due
                 extras.forEach { health.acknowledge($0) }
                 focusDoneExtras = extras
-            case .breakEnded:
+            case let .breakEnded(at):
                 focusDoneExtras = nil
-                breakEndedPending = true
+                // 睡眠醒来补算出来的、早已过时的“休息结束”不再提醒（合盖时常常赶不上记下熄屏时刻）
+                breakEndedPending = now.timeIntervalSince(at) < Self.gateExpiry
+            }
+        }
+
+        // 放在 advance 之后：熄屏期间补算出来的横幅也要一起作废
+        if !gateActive {
+            if gateClosedAt == nil { gateClosedAt = now }
+        } else if let closed = gateClosedAt {
+            gateClosedAt = nil
+            if now.timeIntervalSince(closed) >= Self.gateExpiry {
+                breakEndedPending = false
+                health.acknowledge(.water)
             }
         }
 
