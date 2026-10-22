@@ -3,7 +3,8 @@
 //   熄屏：  OFF
 //   页面：  P <sys|cl|gpt> i=<当前序号,从1起> n=<启用页数>
 //   用量：  U svc=<cl|gpt> st=<ok|exp|err|none> [age=<秒> plan=<套餐> h5=<0-100|-1> h5r=<秒>
-//           wk=<0-100|-1> wkd=<1-7,周一为1> wkt=<HHMM> op=<0-100|-1> so=<0-100|-1>]
+//           wk=<0-100|-1> wkd=<1-7,周一为1> wkt=<HHMM> md=<模型名> mw=<0-100|-1>
+//           op=<0-100|-1> so=<0-100|-1>]
 //   点击：  TAP（固件 → Mac，整行恰好为 TAP）
 
 public struct Sample: Equatable, Sendable {

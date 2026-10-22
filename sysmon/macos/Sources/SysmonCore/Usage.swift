@@ -21,6 +21,17 @@ public struct UsageWindow: Equatable, Codable, Sendable {
     }
 }
 
+/// 按模型单独计算的额度窗口，name 是接口给的模型显示名（例如 "Fable"）。
+public struct ModelWindow: Equatable, Codable, Sendable {
+    public var name: String
+    public var window: UsageWindow
+
+    public init(name: String, window: UsageWindow) {
+        self.name = name
+        self.window = window
+    }
+}
+
 /// 某个服务一次拉取到的用量。
 public struct UsageSnapshot: Equatable, Codable, Sendable {
     /// 小写 ASCII，例如 "max"、"plus"
@@ -30,6 +41,8 @@ public struct UsageSnapshot: Equatable, Codable, Sendable {
     /// 只有 Claude 才有
     public var opus: UsageWindow?
     public var sonnet: UsageWindow?
+    /// 只有 Claude 才有：limits 里第一条按模型的每周额度（升级前持久化的快照里没有，解码为 nil）
+    public var modelWeek: ModelWindow?
     public var fetchedAt: Date
 
     public init(plan: String? = nil, fiveHour: UsageWindow? = nil, week: UsageWindow? = nil,
@@ -94,19 +107,37 @@ private func claudeWindow(_ raw: Any?, minutes: Int) -> UsageWindow? {
     return UsageWindow(percent: clampPercent(u), resetsAt: reset, minutes: minutes)
 }
 
+/// limits 里第一条按模型的每周额度（kind 为 weekly_scoped 且 scope.model 有名字和百分比）。
+/// 按产品（scope.surface）分的额度不算。
+private func claudeModelWeek(_ raw: Any?) -> ModelWindow? {
+    guard let limits = raw as? [[String: Any]] else { return nil }
+    for limit in limits where limit["kind"] as? String == "weekly_scoped" {
+        let scope = limit["scope"] as? [String: Any]
+        guard let model = scope?["model"] as? [String: Any],
+              let name = model["display_name"] as? String, !name.isEmpty,
+              let percent = number(limit["percent"]) else { continue }
+        let reset = (limit["resets_at"] as? String).flatMap(parseISO8601)
+        return ModelWindow(name: name, window: UsageWindow(percent: clampPercent(percent), resetsAt: reset,
+                                                           minutes: weekMinutes))
+    }
+    return nil
+}
+
 /// 解析 api.anthropic.com/api/oauth/usage 的响应。套餐不在响应里，由调用方传入。
 public func parseClaudeUsage(_ data: Data, plan: String?, now: Date) throws -> UsageSnapshot {
     let obj = try jsonObject(data)
     let five = claudeWindow(obj["five_hour"], minutes: fiveHourMinutes)
     let week = claudeWindow(obj["seven_day"], minutes: weekMinutes)
     guard five != nil || week != nil else { throw UsageParseError() }
-    return UsageSnapshot(
+    var snapshot = UsageSnapshot(
         plan: normalizePlan(plan),
         fiveHour: five,
         week: week,
         opus: claudeWindow(obj["seven_day_opus"], minutes: weekMinutes),
         sonnet: claudeWindow(obj["seven_day_sonnet"], minutes: weekMinutes),
         fetchedAt: now)
+    snapshot.modelWeek = claudeModelWeek(obj["limits"])
+    return snapshot
 }
 
 /// reset_at（Unix 秒）只接受 2000 年之后、不超过现在起一年的值；

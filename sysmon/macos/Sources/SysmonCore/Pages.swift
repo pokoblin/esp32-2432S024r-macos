@@ -49,7 +49,12 @@ private func windowPercent(_ w: UsageWindow, now: Date) -> Int {
     return w.percent
 }
 
-/// U 行，字段顺序固定：svc st age plan h5 h5r wk wkd wkt op so。
+/// 只留 keep 认可的字符，最多 10 个。
+private func protocolToken(_ s: String, keep: (Unicode.Scalar) -> Bool) -> String {
+    String(String.UnicodeScalarView(s.unicodeScalars.filter(keep).prefix(10)))
+}
+
+/// U 行，字段顺序固定：svc st age plan h5 h5r wk wkd wkt md mw op so。
 /// 没有快照时只有 svc 和 st；缺失的窗口、重置时间对应字段整体省略。
 public func encodeUsage(_ service: UsageService, status: UsageStatus, snapshot: UsageSnapshot?,
                         now: Date, calendar: Calendar) -> String {
@@ -57,9 +62,7 @@ public func encodeUsage(_ service: UsageService, status: UsageStatus, snapshot: 
     if let s = snapshot {
         line += " age=\(clampedSeconds(now.timeIntervalSince(s.fetchedAt)))"
         if let plan = s.plan {
-            let p = String(String.UnicodeScalarView(plan.unicodeScalars.filter {
-                ("a"..."z").contains($0) || ("0"..."9").contains($0)
-            }.prefix(10)))
+            let p = protocolToken(plan) { ("a"..."z").contains($0) || ("0"..."9").contains($0) }
             if !p.isEmpty { line += " plan=\(p)" }
         }
         if let w = s.fiveHour {
@@ -76,6 +79,13 @@ public func encodeUsage(_ service: UsageService, status: UsageStatus, snapshot: 
                 let wkd = ((c.weekday ?? 1) + 5) % 7 + 1
                 line += " wkd=\(wkd) wkt=\((c.hour ?? 0) * 100 + (c.minute ?? 0))"
             }
+        }
+        if let m = s.modelWeek {
+            // 模型名保留大小写，板子上直接拼成“本周 <名>”
+            let name = protocolToken(m.name) {
+                ("a"..."z").contains($0) || ("A"..."Z").contains($0) || ("0"..."9").contains($0)
+            }
+            if !name.isEmpty { line += " md=\(name) mw=\(windowPercent(m.window, now: now))" }
         }
         if let w = s.opus { line += " op=\(windowPercent(w, now: now))" }
         if let w = s.sonnet { line += " so=\(windowPercent(w, now: now))" }

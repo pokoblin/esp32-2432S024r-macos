@@ -22,6 +22,35 @@ private func iso(_ s: String) -> Date {
     #expect(s.fiveHour?.minutes == 300 && s.week?.minutes == 10080)
     #expect(s.plan == "max")
     #expect(s.fetchedAt == Date(timeIntervalSince1970: 0))
+    // limits 里按模型单独计算的每周额度
+    #expect(s.modelWeek == ModelWindow(
+        name: "Fable", window: UsageWindow(percent: 0, resetsAt: iso("2026-10-24T12:00:00Z"), minutes: 10080)))
+}
+
+@Test func claudeModelWeekTakesFirstModelScopedLimit() throws {
+    func modelWeek(_ limits: String) throws -> ModelWindow? {
+        let json = #"{"five_hour":{"utilization":1,"resets_at":null},"limits":"# + limits + "}"
+        return try parseClaudeUsage(Data(json.utf8), plan: nil, now: .init(timeIntervalSince1970: 0)).modelWeek
+    }
+    let surface = #"{"kind":"weekly_scoped","percent":40,"scope":{"model":null,"surface":{"display_name":"Cowork"}}}"#
+    let noName = #"{"kind":"weekly_scoped","percent":30,"scope":{"model":{"display_name":""}}}"#
+    let noPercent = #"{"kind":"weekly_scoped","scope":{"model":{"display_name":"Opus"}}}"#
+    let fable = #"{"kind":"weekly_scoped","percent":61.6,"resets_at":"2026-10-24T12:00:00+00:00","scope":{"model":{"display_name":"Fable"}}}"#
+    let other = #"{"kind":"weekly_scoped","percent":5,"scope":{"model":{"display_name":"Sonnet"}}}"#
+    let weeklyAll = #"{"kind":"weekly_all","percent":23,"scope":null}"#
+    // 只认按模型的 weekly_scoped，跳过没有名字或百分比的，取第一条
+    #expect(try modelWeek("[\(weeklyAll),\(surface),\(noName),\(noPercent),\(fable),\(other)]")
+        == ModelWindow(name: "Fable", window: UsageWindow(percent: 62, resetsAt: iso("2026-10-24T12:00:00Z"), minutes: 10080)))
+    #expect(try modelWeek("[\(weeklyAll),\(surface)]") == nil)
+    #expect(try modelWeek("null") == nil)
+    #expect(try modelWeek(#""oops""#) == nil)
+}
+
+@Test func snapshotWithoutModelWeekDecodesFromOldPersistedJSON() throws {
+    // 升级前持久化的快照没有 modelWeek 字段，照样能读出来
+    let old = #"{"plan":"max","fetchedAt":0,"fiveHour":{"percent":5}}"#
+    let s = try JSONDecoder().decode(UsageSnapshot.self, from: Data(old.utf8))
+    #expect(s.modelWeek == nil && s.fiveHour?.percent == 5)
 }
 
 @Test func parsesClaudeOpusAndSonnetWindows() throws {
@@ -248,6 +277,37 @@ private let protoNow = shanghai.date(from: DateComponents(year: 2026, month: 10,
     let line = encodeUsage(.claude, status: .ok, snapshot: snap, now: protoNow, calendar: shanghai)
     #expect(line == "U svc=cl st=ok age=60 plan=max h5=42 h5r=7980 wk=67 wkd=4 wkt=1400 op=12 so=28\n")
     #expect(line.utf8.count <= 128)
+}
+
+@Test func encodesModelWeek() {
+    let thursday = shanghai.date(from: DateComponents(year: 2026, month: 10, day: 22, hour: 14))!
+    var snap = UsageSnapshot(
+        plan: "max",
+        week: UsageWindow(percent: 67, resetsAt: thursday),
+        fetchedAt: protoNow)
+    snap.modelWeek = ModelWindow(name: "Fable", window: UsageWindow(percent: 4, resetsAt: thursday))
+    var line = encodeUsage(.claude, status: .ok, snapshot: snap, now: protoNow, calendar: shanghai)
+    #expect(line == "U svc=cl st=ok age=0 plan=max wk=67 wkd=4 wkt=1400 md=Fable mw=4\n")
+    // 模型名只留 ASCII 字母数字（保留大小写），最多 10 个字符；过了重置时刻编码成 -1
+    snap.modelWeek = ModelWindow(name: "Claude Fable-5.5 Ultra", window: UsageWindow(percent: 9, resetsAt: protoNow - 1))
+    line = encodeUsage(.claude, status: .ok, snapshot: snap, now: protoNow, calendar: shanghai)
+    #expect(line.hasSuffix(" md=ClaudeFabl mw=-1\n"))
+    // 名字清洗后为空就整条不发
+    snap.modelWeek = ModelWindow(name: "模型", window: UsageWindow(percent: 9))
+    line = encodeUsage(.claude, status: .ok, snapshot: snap, now: protoNow, calendar: shanghai)
+    #expect(!line.contains("md=") && !line.contains("mw="))
+}
+
+@Test func longestUsageLineFitsTheFirmwareBuffer() {
+    // 固件每行内容最多 128 字节（不含换行）
+    let far = protoNow.addingTimeInterval(Double(Int32.max) * 2)
+    let w = UsageWindow(percent: 100, resetsAt: far)
+    let snap = UsageSnapshot(plan: "abcdefghijklmn", fiveHour: w, week: w, opus: w, sonnet: w,
+                             fetchedAt: Date(timeIntervalSince1970: -1e300))
+    var s = snap
+    s.modelWeek = ModelWindow(name: "ABCDEFGHIJKLMN", window: w)
+    let line = encodeUsage(.chatgpt, status: .missing, snapshot: s, now: protoNow, calendar: shanghai)
+    #expect(line.utf8.count - 1 <= 128)
 }
 
 @Test func usageWindowPastResetEncodesMinusOne() {
