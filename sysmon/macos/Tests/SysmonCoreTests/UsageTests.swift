@@ -250,11 +250,11 @@ private let shanghai: Calendar = {
 private let protoNow = shanghai.date(from: DateComponents(year: 2026, month: 10, day: 21, hour: 12))!
 
 @Test func pageCycle() {
-    let all = enabledPages(claude: true, chatgpt: true)
+    let all = enabledPages(pomodoro: false, claude: true, chatgpt: true)
     #expect(all == [.sys, .claude, .chatgpt])
     #expect(nextPage(after: .sys, enabled: all) == .claude)
     #expect(nextPage(after: .chatgpt, enabled: all) == .sys)
-    let noClaude = enabledPages(claude: false, chatgpt: true)
+    let noClaude = enabledPages(pomodoro: false, claude: false, chatgpt: true)
     #expect(nextPage(after: .sys, enabled: noClaude) == .chatgpt)
     #expect(nextPage(after: .sys, enabled: [.sys]) == .sys)
     #expect(resolvePage(.claude, enabled: noClaude) == .sys)

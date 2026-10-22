@@ -38,6 +38,6 @@ final class Preferences: ObservableObject {
 
     /// 参与轮换的页面，顺序固定 sys → cl → gpt
     var enabledPages: [Page] {
-        SysmonCore.enabledPages(claude: claudeEnabled, chatgpt: chatgptEnabled)
+        SysmonCore.enabledPages(pomodoro: false, claude: claudeEnabled, chatgpt: chatgptEnabled)
     }
 }

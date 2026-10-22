@@ -373,3 +373,60 @@ private func shortRoutine() -> Routine {
     run(&q, from: now, seconds: 15 * 60)
     #expect(q.pomodoro.round == 1 && q.stats.count == 0 && q.stats.day == "2026-10-23")
 }
+
+// MARK: - 番茄页、T/B 行、菜单文案
+
+@Test func pageCycleIncludesPomodoro() {
+    let all = enabledPages(pomodoro: true, claude: true, chatgpt: true)
+    #expect(all == [.sys, .pomodoro, .claude, .chatgpt])
+    #expect(nextPage(after: .sys, enabled: all) == .pomodoro)
+    #expect(encodePage(.pomodoro, enabled: all) == "P pomo i=2 n=4\n")
+    #expect(enabledPages(pomodoro: false, claude: true, chatgpt: false) == [.sys, .claude])
+}
+
+/// 第 2 个专注走到还剩 754 秒，本地 14:52 结束
+private func secondFocus() -> (Pomodoro, Date) {
+    let end = local(2026, 10, 22, 14, 52)
+    var p = Pomodoro()
+    p.start(now: end - 4000)
+    _ = p.advance(now: end - 2000)
+    p.start(now: end - 1500)
+    return (p, end - 754)
+}
+
+@Test func encodesTimerLine() {
+    let (p, now) = secondFocus()
+    let stats = TodayStats(day: "2026-10-22", count: 5, focusSeconds: 7500)
+    let line = encodeTimer(p, stats: stats, hasHotKey: true, now: now, calendar: shanghai)
+    #expect(line == "T st=focus run=1 rem=754 tot=1500 end=1452 rd=2 rn=4 dn=5 dm=125 key=1\n")
+    #expect(line.utf8.count <= 128)
+}
+
+@Test func timerLinePausedAndIdleHaveNoEnd() {
+    var (p, now) = secondFocus()
+    p.pause(now: now)
+    let paused = encodeTimer(p, stats: TodayStats(), hasHotKey: true, now: now, calendar: shanghai)
+    #expect(paused.contains(" run=0 rem=754 ") && !paused.contains("end="))
+    let idle = encodeTimer(Pomodoro(), stats: TodayStats(), hasHotKey: false, now: now, calendar: shanghai)
+    #expect(idle == "T st=idle run=0 rem=1500 tot=1500 rd=1 rn=4 dn=0 dm=0 key=0\n")
+}
+
+@Test func encodesBannerLines() {
+    #expect(encodeBanner(nil, led: true) == "B k=none\n")
+    #expect(encodeBanner(Banner(kind: .focusDone, minutes: nil, extras: [.sit, .water]), led: true)
+            == "B k=done xw=1 xs=1 led=1\n")
+    #expect(encodeBanner(Banner(kind: .sit, minutes: 52, extras: []), led: false) == "B k=sit min=52 led=0\n")
+    #expect(encodeBanner(Banner(kind: .breakEnded, minutes: nil, extras: []), led: true) == "B k=brk led=1\n")
+}
+
+@Test func menuStatusText() {
+    var (p, now) = secondFocus()
+    let stats = TodayStats(day: "2026-10-22", count: 5, focusSeconds: 7500)
+    #expect(pomodoroMenuStatus(p, stats: stats, now: now) == "番茄 · 专注 12:34（第 2/4 个）")
+    p.pause(now: now)
+    #expect(pomodoroMenuStatus(p, stats: stats, now: now) == "番茄 · 已暂停 12:34")
+    p.resume(now: now)
+    _ = p.advance(now: now + 754)
+    #expect(pomodoroMenuStatus(p, stats: stats, now: now + 755) == "番茄 · 短休 4:59")
+    #expect(pomodoroMenuStatus(Pomodoro(), stats: stats, now: now) == "番茄 · 今天 5 个")
+}

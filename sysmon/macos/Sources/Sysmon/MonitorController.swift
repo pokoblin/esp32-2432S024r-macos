@@ -86,7 +86,7 @@ final class MonitorController: ObservableObject {
         if page != preferences.page { preferences.page = page }
         var lines = [encodePage(page, enabled: enabled)]
         let service: UsageService? = switch page {
-        case .sys: nil
+        case .sys, .pomodoro: nil
         case .claude: .claude
         case .chatgpt: .chatgpt
         }

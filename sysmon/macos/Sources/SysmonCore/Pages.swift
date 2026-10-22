@@ -3,13 +3,15 @@ import Foundation
 /// 副屏页面。rawValue 是串口 P 行里的页面标识。
 public enum Page: String, Codable, CaseIterable, Sendable {
     case sys
+    case pomodoro = "pomo"
     case claude = "cl"
     case chatgpt = "gpt"
 }
 
-/// 参与轮换的页面，顺序固定 sys → cl → gpt，且始终以 sys 开头。
-public func enabledPages(claude: Bool, chatgpt: Bool) -> [Page] {
+/// 参与轮换的页面，顺序固定 sys → pomo → cl → gpt，且始终以 sys 开头。
+public func enabledPages(pomodoro: Bool, claude: Bool, chatgpt: Bool) -> [Page] {
     var pages: [Page] = [.sys]
+    if pomodoro { pages.append(.pomodoro) }
     if claude { pages.append(.claude) }
     if chatgpt { pages.append(.chatgpt) }
     return pages
