@@ -14,6 +14,11 @@ struct SysmonApp: App {
         Settings {
             SettingsView(monitor: monitor, preferences: monitor.preferences, usage: monitor.usage)
         }
+
+        Window("关于 Sysmon", id: "about") {
+            AboutView()
+        }
+        .windowResizability(.contentSize)
     }
 }
 
@@ -22,6 +27,7 @@ struct MenuContent: View {
     @ObservedObject var monitor: MonitorController
     @ObservedObject var routine: RoutineController
     @Environment(\.openSettings) private var openSettings
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         Text(monitor.portPath.map { "已连接 \($0)" } ?? "未找到设备")
@@ -33,6 +39,10 @@ struct MenuContent: View {
         Button("设置…") {
             forceActivate()
             openSettings()
+        }
+        Button("关于 Sysmon") {
+            forceActivate()
+            openWindow(id: "about")
         }
         Divider()
         Button("退出") { NSApplication.shared.terminate(nil) }
