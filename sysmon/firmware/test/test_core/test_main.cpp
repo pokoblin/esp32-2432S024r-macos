@@ -1,12 +1,14 @@
 #include <unity.h>
 #include <string.h>
 
+#include "breathe.h"
 #include "format.h"
 #include "history.h"
 #include "line_reader.h"
 #include "protocol.h"
 #include "screen_state.h"
 #include "tap.h"
+#include "timer_format.h"
 #include "timer_protocol.h"
 #include "tones.h"
 #include "usage_format.h"
@@ -518,6 +520,113 @@ static void test_timer_remaining_millis_wrap() {
   TEST_ASSERT_EQUAL_INT32(8, timerRemaining(t, 0xFFFFF000u, 0xFFFFF000u + 2000));
 }
 
+// ---- 番茄、横幅文案和呼吸灯 ----
+
+static void test_format_clock() {
+  char b[16];
+  formatClock(754, b, sizeof b); TEST_ASSERT_EQUAL_STRING("12:34", b);
+  formatClock(59, b, sizeof b); TEST_ASSERT_EQUAL_STRING("00:59", b);
+  formatClock(0, b, sizeof b); TEST_ASSERT_EQUAL_STRING("00:00", b);
+  formatClock(-5, b, sizeof b); TEST_ASSERT_EQUAL_STRING("00:00", b);
+  formatClock(5400, b, sizeof b); TEST_ASSERT_EQUAL_STRING("90:00", b);
+  formatClock(99999, b, sizeof b); TEST_ASSERT_EQUAL_STRING("99:59", b);
+}
+static void test_format_end_at() {
+  char b[24];
+  formatEndAt(1452, b, sizeof b); TEST_ASSERT_EQUAL_STRING("14:52 结束", b);
+  formatEndAt(905, b, sizeof b); TEST_ASSERT_EQUAL_STRING("09:05 结束", b);
+  formatEndAt(kAbsent, b, sizeof b); TEST_ASSERT_EQUAL_STRING("", b);
+}
+static void test_format_round_line() {
+  char b[48];
+  Timer t;
+  t.rn = 4;
+  t.phase = Phase::Focus; t.rd = 2;
+  formatRoundLine(t, b, sizeof b); TEST_ASSERT_EQUAL_STRING("第 2 个 · 再 2 个后长休", b);
+  t.rd = 4;
+  formatRoundLine(t, b, sizeof b); TEST_ASSERT_EQUAL_STRING("第 4 个 · 这个做完长休", b);
+  t.phase = Phase::Short; t.rd = 2;
+  formatRoundLine(t, b, sizeof b); TEST_ASSERT_EQUAL_STRING("已完成 2/4", b);
+  t.phase = Phase::Idle; t.rd = 1;
+  formatRoundLine(t, b, sizeof b); TEST_ASSERT_EQUAL_STRING("第 1 个 · 再 3 个后长休", b);
+}
+static void test_format_today_minutes() {
+  char b[24];
+  formatTodayMinutes(125, b, sizeof b); TEST_ASSERT_EQUAL_STRING("2小时05分", b);
+  formatTodayMinutes(45, b, sizeof b); TEST_ASSERT_EQUAL_STRING("45分", b);
+  formatTodayMinutes(0, b, sizeof b); TEST_ASSERT_EQUAL_STRING("0分", b);
+}
+static void test_phase_label_and_hint() {
+  char b[32];
+  Timer t;
+  t.key = true;
+  TEST_ASSERT_EQUAL_STRING("准备专注", phaseLabel(t));
+  formatHint(t, b, sizeof b); TEST_ASSERT_EQUAL_STRING("按快捷键开始专注", b);
+  t.phase = Phase::Focus; t.running = true;
+  TEST_ASSERT_EQUAL_STRING("专注", phaseLabel(t));
+  formatHint(t, b, sizeof b); TEST_ASSERT_EQUAL_STRING("按快捷键暂停", b);
+  t.running = false;
+  TEST_ASSERT_EQUAL_STRING("已暂停", phaseLabel(t));
+  formatHint(t, b, sizeof b); TEST_ASSERT_EQUAL_STRING("按快捷键继续", b);
+  t.phase = Phase::Short; t.running = true;
+  TEST_ASSERT_EQUAL_STRING("短休", phaseLabel(t));
+  t.phase = Phase::Long;
+  TEST_ASSERT_EQUAL_STRING("长休", phaseLabel(t));
+  t.key = false;
+  formatHint(t, b, sizeof b); TEST_ASSERT_EQUAL_STRING("在菜单栏开始", b);
+}
+static void test_banner_texts() {
+  char b[64];
+  Timer t;
+  t.tot = 300;
+  Banner done; done.kind = BannerKind::FocusDone;
+  TEST_ASSERT_EQUAL_STRING("专注完成", bannerTitle(done.kind));
+  formatBannerDetail(done, t, b, sizeof b); TEST_ASSERT_EQUAL_STRING("休息 5 分钟", b);
+  formatBannerExtras(done, b, sizeof b); TEST_ASSERT_EQUAL_STRING("", b);
+  done.xw = true;
+  formatBannerExtras(done, b, sizeof b); TEST_ASSERT_EQUAL_STRING("顺便喝口水", b);
+  done.xs = true;
+  formatBannerExtras(done, b, sizeof b); TEST_ASSERT_EQUAL_STRING("顺便起来走走、喝口水", b);
+  done.xw = false;
+  formatBannerExtras(done, b, sizeof b); TEST_ASSERT_EQUAL_STRING("顺便起来走走", b);
+  formatBannerHint(done, b, sizeof b); TEST_ASSERT_EQUAL_STRING("点一下关掉", b);
+
+  Banner brk; brk.kind = BannerKind::BreakEnded;
+  TEST_ASSERT_EQUAL_STRING("休息结束", bannerTitle(brk.kind));
+  formatBannerDetail(brk, t, b, sizeof b); TEST_ASSERT_EQUAL_STRING("该开始下一个专注了", b);
+  formatBannerHint(brk, b, sizeof b); TEST_ASSERT_EQUAL_STRING("按快捷键开始 · 点一下关掉", b);
+
+  Banner sit; sit.kind = BannerKind::Sit; sit.min = 52;
+  TEST_ASSERT_EQUAL_STRING("该起来走走了", bannerTitle(sit.kind));
+  formatBannerDetail(sit, t, b, sizeof b); TEST_ASSERT_EQUAL_STRING("已连续用电脑 52 分钟", b);
+  formatBannerHint(sit, b, sizeof b); TEST_ASSERT_EQUAL_STRING("点一下关掉 · 离开 5 分钟会自己消失", b);
+
+  Banner water; water.kind = BannerKind::Water; water.min = 60;
+  TEST_ASSERT_EQUAL_STRING("该喝水了", bannerTitle(water.kind));
+  formatBannerDetail(water, t, b, sizeof b); TEST_ASSERT_EQUAL_STRING("上次提醒是 60 分钟前", b);
+
+  TEST_ASSERT_EQUAL_STRING("", bannerTitle(BannerKind::None));
+}
+static void test_breathe_level() {
+  TEST_ASSERT_EQUAL_UINT8(0, breatheLevel(0));
+  TEST_ASSERT_EQUAL_UINT8(255, breatheLevel(1500));
+  TEST_ASSERT_EQUAL_UINT8(0, breatheLevel(3000));
+  TEST_ASSERT_EQUAL_UINT8(breatheLevel(700), breatheLevel(2300));
+  TEST_ASSERT_TRUE(breatheLevel(700) > 0 && breatheLevel(700) < 255);
+}
+static void test_scale_rgb_and_colors() {
+  Rgb c = scaleRgb(Rgb{255, 100, 0}, 128);
+  TEST_ASSERT_EQUAL_UINT8(128, c.r);
+  TEST_ASSERT_EQUAL_UINT8(50, c.g);
+  TEST_ASSERT_EQUAL_UINT8(0, c.b);
+  Rgb off = bannerLedColor(BannerKind::None);
+  TEST_ASSERT_EQUAL_UINT8(0, off.r + off.g + off.b);
+  Rgb water = bannerLedColor(BannerKind::Water);
+  TEST_ASSERT_TRUE(water.b > water.r);
+  Rgb done = bannerLedColor(BannerKind::FocusDone);
+  TEST_ASSERT_TRUE(done.g > done.r && done.g > done.b);
+}
+
 int main(int, char**) {
   UNITY_BEGIN();
   RUN_TEST(test_parse_full_line);
@@ -566,5 +675,13 @@ int main(int, char**) {
   RUN_TEST(test_parse_banner_lines);
   RUN_TEST(test_timer_remaining_counts_down_and_clamps);
   RUN_TEST(test_timer_remaining_millis_wrap);
+  RUN_TEST(test_format_clock);
+  RUN_TEST(test_format_end_at);
+  RUN_TEST(test_format_round_line);
+  RUN_TEST(test_format_today_minutes);
+  RUN_TEST(test_phase_label_and_hint);
+  RUN_TEST(test_banner_texts);
+  RUN_TEST(test_breathe_level);
+  RUN_TEST(test_scale_rgb_and_colors);
   return UNITY_END();
 }
