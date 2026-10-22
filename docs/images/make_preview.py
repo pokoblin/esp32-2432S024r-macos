@@ -1,5 +1,5 @@
 """生成 README 用的示意图 HTML：显示器右边缘 + 贴在旁边的 ESP32 副屏。
-屏幕内容按固件 sysmon/firmware/src/ui.cpp 的坐标（240×320）和配色画，数据是编的。
+屏幕内容按固件 sysmon/firmware/src/ui.cpp 的坐标（240×320）和配色画，文字用英文（README 各语言版本共用），数据是编的。
 
 重新生成：
     python3 docs/images/make_preview.py /tmp/preview.html
@@ -72,25 +72,25 @@ screen = f"""
   <style>
     .num {{ font: 700 25px 'Helvetica Neue', Helvetica, Arial, sans-serif; }}
     .big {{ font: 700 25px 'Helvetica Neue', Helvetica, Arial, sans-serif; }}
-    .lbl {{ font: 400 11.5px 'PingFang SC', sans-serif; fill: #8a9099; }}
-    .dim {{ font: 400 9.5px 'PingFang SC', sans-serif; fill: #5c626b; }}
+    .lbl {{ font: 400 11.5px -apple-system, 'Helvetica Neue', sans-serif; fill: #8a9099; }}
+    .dim {{ font: 400 9.5px -apple-system, 'Helvetica Neue', sans-serif; fill: #5c626b; }}
   </style>
   <rect width="240" height="320" fill="#0b0d10"/>
   {ring(64, 62, "#ffcc00", "#e8eaed", "CPU %")}
-  {ring(176, 51, "#34c759", "#34c759", "内存压力 %")}
+  {ring(176, 51, "#34c759", "#34c759", "Memory pressure %")}
   <line x1="12" y1="134.5" x2="228" y2="134.5" stroke="#1c2026"/>
-  <text x="12" y="154" class="lbl">↓ 下载</text>
-  <text x="228" y="154" text-anchor="end" class="lbl">↑ 上传</text>
+  <text x="12" y="154" class="lbl">↓ Download</text>
+  <text x="228" y="154" text-anchor="end" class="lbl">↑ Upload</text>
   <text x="12" y="185" class="big" fill="#64d2ff">{rxn}<tspan class="lbl" dx="3">{rxu}</tspan></text>
   <text x="228" y="185" text-anchor="end" class="big" fill="#ff9f0a">{txn}<tspan class="lbl" dx="3">{txu}</tspan></text>
   <line x1="12" y1="{PEAK_Y}.5" x2="228" y2="{PEAK_Y}.5" stroke="#1c2026" stroke-dasharray="3 3"/>
-  <text x="228" y="205" text-anchor="end" class="dim">峰值 {pkn} {pku}</text>
+  <text x="228" y="205" text-anchor="end" class="dim">Peak {pkn} {pku}</text>
   <line x1="12" y1="{BOTTOM}.5" x2="228" y2="{BOTTOM}.5" stroke="#1c2026"/>
   <polygon points="{fill_pts}" fill="#182b34"/>
   <polyline points="{rx_pts}" fill="none" stroke="#64d2ff" stroke-width="1.6" stroke-linejoin="round"/>
   <polyline points="{tx_pts}" fill="none" stroke="#ff9f0a" stroke-width="1.6" stroke-linejoin="round"/>
-  <text x="12" y="309" class="dim">5 分钟前</text>
-  <text x="228" y="309" text-anchor="end" class="dim">现在</text>
+  <text x="12" y="309" class="dim">5 min ago</text>
+  <text x="228" y="309" text-anchor="end" class="dim">now</text>
 </svg>"""
 
 # 菜单栏里的 Sysmon 图标，和 BoardIcon.swift 同样的画法（18×18）
@@ -116,7 +116,7 @@ html = f"""<!doctype html>
   html, body {{ margin: 0; width: 1200px; height: 820px; overflow: hidden; }}
   body {{
     background: radial-gradient(ellipse at 70% 40%, #3a3f47 0%, #24272c 45%, #141518 100%);
-    font-family: -apple-system, 'PingFang SC', sans-serif; position: relative;
+    font-family: -apple-system, -apple-system, 'Helvetica Neue', sans-serif; position: relative;
   }}
   /* 显示器右边缘 */
   .monitor {{
@@ -179,7 +179,7 @@ html = f"""<!doctype html>
   <div class="monitor"><div class="display">
     <div class="menubar">
       <span class="sysmon-icon">{icon}</span>
-      <span>10月21日 周三 14:32</span>
+      <span>Wed Oct 21&nbsp;&nbsp;2:32 PM</span>
     </div>
   </div></div>
   <div class="cable"></div>

@@ -1,143 +1,121 @@
-# ESP32 Mac 系统状态副屏
+# Sysmon: a Mac status screen on an ESP32-2432S024R
 
-把一块 ESP32-2432S024R（2.4 寸 ST7789 屏，俗称 CYD）变成 Mac 的系统状态副屏：贴在显示器旁边，扫一眼就能看到 CPU、内存压力和网速，以及 Claude 和 ChatGPT 的订阅额度还剩多少；还带一个番茄钟，到点会整屏提醒你休息、起来走走、喝水。
+**English** | [简体中文](docs/readme/README.zh-CN.md) | [繁體中文](docs/readme/README.zh-TW.md) | [日本語](docs/readme/README.ja.md) | [한국어](docs/readme/README.ko.md) | [Español](docs/readme/README.es.md) | [Français](docs/readme/README.fr.md) | [Deutsch](docs/readme/README.de.md) | [Português (Brasil)](docs/readme/README.pt-BR.md) | [Русский](docs/readme/README.ru.md)
 
-Mac 上的菜单栏程序 **Sysmon** 每 2 秒采集一次数据，通过 USB 串口发给板子；板子负责画圆环和曲线。不需要 WiFi，也不在 Mac 上开任何端口。
+Turn an ESP32-2432S024R (a 2.4" ST7789 board, a.k.a. "Cheap Yellow Display") into a little status screen next to your monitor. At a glance you see CPU, memory pressure and network speed, how much of your Claude and ChatGPT subscription limits is left, and a pomodoro timer that reminds you to take breaks, stand up and drink water.
 
-![Sysmon 副屏示意图](docs/images/sysmon-preview.jpg)
+The menu bar app **Sysmon** samples your Mac every 2 seconds and sends the data to the board over USB serial; the board draws the rings and charts. No Wi-Fi, and no ports are opened on your Mac.
 
-<sub>示意图：屏幕内容按固件的实际布局和配色绘制，数据为示例。</sub>
+![Sysmon screen next to a monitor](docs/images/sysmon-preview.jpg)
 
-## 屏幕上有什么
+<sub>Illustrations are drawn from the firmware's real layout and colors; the data is made up.</sub>
 
-竖屏 240×320，深色背景。一共四屏：系统状态、番茄、Claude 用量、ChatGPT 用量。另外有一层提醒横幅，到点时盖在任意一屏上面。
+> **Language note:** the Mac app comes in 10 languages. The board itself currently shows Chinese text only; the pictures in this README show an English rendering of the same screens.
 
-### 系统状态屏
+## Screens
 
-- **上半屏**：CPU 和内存压力两个圆环。
-  - CPU 圆环按占用率变色：低于 50% 绿色，50–79% 黄色，80% 及以上红色。
-  - 内存圆环的颜色跟随系统的内存压力等级（正常 / 警告 / 严重），和“活动监视器”一致；圆环长度和中间的数字是压力百分比。
-- **下半屏**：下载和上传的当前速度，以及最近 5 分钟的两色曲线。
-  - 速度默认用 MB/s，满 1000 MB/s 改用 GB/s，保留约 3 位有效数字。
-  - 曲线高度按 5 分钟内的峰值自动缩放，右上角标出峰值。
+Portrait 240×320, dark background. Four screens: System, Pomodoro, Claude usage and ChatGPT usage. A reminder banner can cover any of them.
 
-### Claude 屏和 ChatGPT 屏
+![The four screens](docs/images/screens.jpg)
 
-两块用量屏布局相同，顶栏左侧是品牌名（Claude 橙色，ChatGPT 绿色），右侧是页码小点：
+### System
 
-- **中部**：大圆环表示 5 小时额度的使用百分比，中间是大号数字，下方写重置倒计时，例如“2小时13分后重置”。
-- **下部**：每周额度的进度条，标出重置的星期和时刻，例如“本周 · 周四 14:00 重置”。Claude 屏还会多画按模型单独计算的每周额度，例如“本周 Fable”，以及“本周 Opus”“本周 Sonnet”（接口没返回的就不画，最多再画两条）。
-- **颜色**：圆环和进度条的阈值和 CPU 一样，低于 50% 绿色，50–79% 黄色，80% 及以上红色。
-- **底栏**：左侧是套餐名（Max、Plus 等），右侧是数据的新鲜度，例如“3 分钟前更新”，一分钟内是“刚刚更新”，之后依次是“N 小时前更新”“N 天前更新”。刚连上、还没收到 Mac 发来的数据时写“等待数据”。登录过期时变成橙色的“已过期 · 终端运行 claude”（ChatGPT 是“已过期 · 打开 Codex”），数字停在最后一次拉取到的值；请求出错时是橙色的“读取失败 · N 分钟前的数据”，从没拉取成功过则只写“读取失败”，数字显示“--”。某个额度窗口已经重置而新数据还没到，对应的数字显示“--”并写“已重置”。
-- **未登录**：Mac 上找不到对应的登录（Claude Code 或 Codex），而且从没拉取成功过时，整屏只留顶栏和一句提示“未找到 Claude Code 登录”（ChatGPT 屏是“未找到 Codex 登录”），下面一行小字“在设置里可以关闭这一屏”。
+- **Top:** CPU and memory-pressure rings. CPU turns yellow at 50% and red at 80%. The memory ring follows macOS's memory-pressure level (normal / warning / critical), just like Activity Monitor.
+- **Bottom:** current download and upload speed, plus a two-color chart of the last 5 minutes. The chart scales to the 5-minute peak.
 
-### 番茄屏
+### Pomodoro
 
-- **顶栏**：左侧是番茄红的“番茄”，右侧是页码小点。
-- **中部**：大圆环表示这一段还剩多少，越走越短；中间是剩余时间（例如“12:34”）和阶段名，下面写这一段几点结束，例如“14:52 结束”。
-- **颜色**：专注番茄红，短休绿色，长休蓝色；暂停和还没开始时是灰色（写“已暂停”“准备专注”）。
-- **下部**：这一轮的进度点（每轮默认 4 个，做完的实心、正在做的空心），下面写“第 2 个 · 再 2 个后长休”，休息时写“已完成 2/4”；再下面是今日统计，例如“今天 5 个 · 2小时05分”。
-- **底栏**：操作提示，例如“按快捷键开始专注”；没录番茄快捷键时写“在菜单栏开始”。
+- A big ring shows how much of the current session is left, with the remaining time, the phase and when it ends. Focus is tomato red, short break green, long break blue; paused or not started is gray.
+- Below: dots for this round (4 focus sessions by default), e.g. "#2 · 2 more until long break", and today's tally, e.g. "5 done · 2h 05m".
+- Defaults: 25 min focus, 5 min short break, 15 min long break after every 4th focus. All adjustable; changes apply from the next session.
+- Only focus needs a manual start: a finished focus rolls straight into a break, and a finished break waits for you.
+- Start, pause and resume with one global shortcut or from the menu; the menu also has Skip and Reset Round. Skipping a focus abandons it and it isn't counted.
+- The timer runs on real time, so it keeps going while you're away, the screen is locked or the Mac sleeps. Today's tally resets at midnight and survives restarts.
+- While you're focusing, the other screens show a thin 3 px tomato-red progress line at the very top (gray while paused).
 
-### 番茄钟怎么走
+### Claude and ChatGPT usage
 
-- 默认专注 25 分钟、短休 5 分钟，每 4 个专注之后长休 15 分钟，都可以在设置里改；改了只影响下一段。
-- 只有专注要手动开始：专注走完自动进入休息，休息走完停下来，等你开始下一个。
-- 开始、暂停、继续用 Sysmon 菜单或番茄快捷键（同一个键：没开始时开始，走着时暂停，暂停时继续）；菜单里还有“跳过”和“重置轮次”。专注中跳过等于放弃这个番茄，不计入统计。
-- 按 Mac 的真实时间走，离开电脑、锁屏、合盖睡眠期间都照常走。
-- 今日统计只算完整走完的专注，过了零点清零，重启 Sysmon 后还在；正在走的番茄不会在重启后恢复。
+- A big ring for the 5-hour limit with the time until it resets, and bars for the weekly limit ("This week · resets Thu 14:00"). Claude also shows its per-model weekly limits when the API reports them.
+- Same color thresholds as CPU. The footer shows the plan (Max, Plus…) and how fresh the data is.
+- Stale data is always marked: "Expired" when the sign-in has run out, "Couldn't read" when a request failed, and "--" when a window has already reset.
 
-### 别的屏上的番茄进度
+### Reminder banners
 
-专注时（包括暂停），系统状态屏、Claude 屏和 ChatGPT 屏的最顶上有一条 3px 的番茄红进度线，长度是这一段已走的比例，暂停时变灰。休息和空闲时不画。
+![The four reminder banners](docs/images/banners.jpg)
 
-### 提醒横幅
+Whatever screen you're on, a banner takes over the whole screen and the RGB light on the back of the board breathes in the same color (you can turn the light off). Tap the board or press the switch-screen shortcut to dismiss it.
 
-到点时不管停在哪一屏，整屏换成提醒色的暗底，大字居中；板子背面的 RGB 灯用同样的颜色慢慢呼吸（设置里可以关掉灯）。点一下副屏或按切屏快捷键就关掉横幅、回到原来那屏。
-
-| 横幅 | 什么时候出现 | 颜色 | 什么时候自己消失 |
+| Banner | When | Color | Goes away by itself |
 |---|---|---|---|
-| 专注完成 | 专注走完、自动进入休息时；下面显示休息倒计时，专注期间被压住的提醒会并进来，例如“顺便起来走走、喝口水” | 绿 | 休息结束 |
-| 休息结束 | 休息走完时，“该开始下一个专注了” | 红 | 开始专注 |
-| 该起来走走了 | 连续用电脑满 50 分钟，“已连续用电脑 52 分钟” | 橙 | 离开电脑满 5 分钟 |
-| 该喝水了 | 用电脑累计满 60 分钟 | 蓝 | 不会，点掉为止 |
+| Focus done | A focus session ends and the break starts; shows the break countdown and any reminders held back during focus | green | when the break ends |
+| Break over | The break ends | red | when you start the next focus |
+| Stand up | 50 minutes of actual computer use | orange | after 5 minutes away |
+| Drink water | 60 minutes of computer use | blue | no, tap to dismiss |
 
-- 久坐只算实际在用电脑的时间：键盘鼠标闲置和锁屏、显示器睡眠的时间连起来满 5 分钟，就算起来过，重新计时；喝水要离开满 30 分钟才重新计时。
-- 专注期间（包括暂停）到点的久坐和喝水提醒不出横幅，等专注完成时并进“专注完成”横幅里一起提醒。
-- 几个横幅同时到点时一次只显示一个，顺序是专注完成、休息结束、久坐、喝水，关掉一个再出下一个。
-- 熄屏期间不出横幅，亮屏后补上；熄屏满 30 分钟时，“休息结束”和喝水横幅作废。
-- 一直看视频、开会不碰键盘鼠标时，会被当成离开，久坐提醒会少一次。
+- "Computer use" means keyboard or mouse activity. Idle time and a locked or sleeping screen add up as time away: 5 minutes away resets the stand-up timer, 30 minutes resets the water timer.
+- No banners during focus (including paused): they are held and folded into the "Focus done" banner.
+- One banner at a time, in the order shown in the table.
 
-### 切换屏幕
+### Switching screens and turning off
 
-- 顺序是系统状态 → 番茄 → Claude → ChatGPT → 系统状态。
-- 两种方式效果完全一样：按全局快捷键（在 Sysmon 设置里录制，默认没有），或者在副屏任意位置点一下。
-- 有横幅时，点屏和快捷键是关掉横幅，不切屏。
-- 在设置里关掉的番茄屏和用量屏不参与轮换；如果正停在那一屏，会立即回到系统状态屏。三块都关掉时，快捷键和点屏都不起作用。关掉番茄屏后番茄钟照常能用，进度线和横幅也照常出现。
-- 当前是第几屏由 Mac 端记录，重启 Sysmon 或重新插线后回到上次那一屏。
-- 各屏的右上角都有页码小点：点的个数是参与轮换的屏数，高亮的是当前屏。只有系统状态屏时不画点。
-- 停在别的屏时，系统状态数据仍然照常发送，切回来时网速曲线是连续的。
+- Order: System → Pomodoro → Claude → ChatGPT. Tap anywhere on the board or press the global shortcut. While a banner is showing, the same action dismisses it instead.
+- Screens turned off in Settings are skipped. The page dots in the top-right corner show where you are.
+- The screen and the light go dark as soon as the display sleeps, the screen locks, you switch users or the Mac sleeps, and come back automatically. About 10 seconds after Sysmon quits or the cable is unplugged, the screen turns off.
 
-### 什么时候熄屏
+## The menu bar app
 
-- 显示器睡眠、锁屏、切换用户或 Mac 睡眠时，副屏和 RGB 灯立即熄灭，恢复后自动亮起。熄屏期间点屏和快捷键都不会切屏。
-- 退出 Sysmon 或拔掉线后，约 10 秒熄屏。
-- 数据中断超过 5 分钟，再次亮屏时曲线从头开始。
+- The icon is an ESP32 module; it gets a slash while no board is connected.
+- The menu has the connection status, the pomodoro actions that make sense right now, Settings, About and Quit.
+- Settings has four tabs:
+  - **General:** the switch-screen shortcut, the RGB light, the app language (System Default or one of 10 languages) and Launch at Login.
+  - **Pomodoro:** the pomodoro screen, the start/pause shortcut, durations and sessions per round.
+  - **Reminders:** stand-up and water reminders and their intervals.
+  - **Usage:** the Claude and ChatGPT usage screens with their status, and where the data comes from.
+- Global shortcuts use Carbon hot keys, so no Accessibility permission is needed. Detecting whether you're at the computer reads the system idle time, which needs no permission either.
+- It finds the board by the WCH (CH340) USB vendor ID and reconnects after replugging. Opening or closing the port never resets the board.
+- CPU usage stays close to 0%.
 
-## 菜单栏程序 Sysmon
+<!-- Screenshots of the menu and the Settings window go here, e.g. docs/images/macos-menu.png and docs/images/macos-settings.png -->
 
-- 图标是一块 ESP32 模组；未连接板子时图标上多一道斜杠。
-- 菜单里显示连接状态、番茄钟当前能用的操作（开始专注、暂停或继续、跳过、重置轮次），以及“设置…”和“退出”。
-- 设置窗口里可以：
-  - 录制切换副屏的全局快捷键（不需要“辅助功能”权限）。
-  - 开关番茄屏，录制番茄“开始 / 暂停”快捷键（不能和切屏快捷键相同），调整专注、短休、长休的分钟数和每轮个数。
-  - 分别开关久坐、喝水提醒，调整间隔分钟数。
-  - 开关 RGB 灯。
-  - 分别开关 Claude 和 ChatGPT 用量屏，并看到各自的状态，例如“正常 · 3 分钟前更新”。
-  - 打开或关闭“开机时启动”。
-  - 阅读用量数据的来源和代价的说明（见下文）。
-- 网速只统计有线和 WiFi（`en*` 网卡），开全局代理或 VPN 时不会重复计算。
-- 自动按 WCH（CH340）的 USB 厂商 ID 找板子，拔插后自动重连；打开和关闭串口都不会让板子复位。
-- 用量数据每 2 分钟拉取一次；副屏熄灭期间不拉取，恢复亮屏后立刻补一次。
-- 判断“有没有在用电脑”读的是系统的键鼠闲置时间，不需要任何权限，也不会弹授权窗。
-- 平时 CPU 占用接近 0%。
+### Where usage data comes from
 
-### 用量数据从哪来
+Sysmon borrows the sign-ins already on your Mac, read-only:
 
-Sysmon 借用你机器上已有的登录来查额度，只读：
+- **Claude:** the Claude Code credentials in the login keychain (item `Claude Code-credentials`, read through `/usr/bin/security`, so no permission prompt), sent to Anthropic's usage endpoint.
+- **ChatGPT:** Codex's `~/.codex/auth.json`, sent to ChatGPT's usage endpoint.
 
-- **Claude**：读取 Claude Code 存在登录钥匙串里的凭据（项目名 `Claude Code-credentials`，通过 `/usr/bin/security` 读取，不会弹授权窗），请求 Anthropic 的用量接口。
-- **ChatGPT**：只读 Codex 的 `~/.codex/auth.json`，请求 ChatGPT 的用量接口。
+Sysmon never renews these sign-ins and never writes the keychain or `auth.json`, so it can't sign you out. The catch: if you don't use Claude Code or Codex for a while, the sign-in expires and the screen keeps the last numbers, marked "Expired". To fix it, run `claude` once in a terminal, or open Codex once; new numbers show up within 2 minutes. Usage is fetched every 2 minutes, and not while the screen is off.
 
-Sysmon 不会帮它们续期，也不会写钥匙串或 `auth.json`，所以不会把你登出。
+Neither endpoint is documented and either may change. If one can't be parsed, only that screen shows "Couldn't read".
 
-代价是：一段时间没用 Claude Code 或 Codex，登录就会过期。这时副屏停在最后一次的数字上，并标成“已过期”。恢复办法：Claude 在终端里运行一次 `claude`；ChatGPT 打开一次 Codex。最多 2 分钟，新数字就会出现。
+## Requirements
 
-这两个用量接口都没有公开文档，格式随时可能变化。如果哪天解析不了，对应的那一屏会显示“读取失败”，其余部分照常工作。
-
-## 需要什么
-
-| 项目 | 要求 |
+| Item | Requirement |
 |---|---|
-| 开发板 | ESP32-2432S024R（ESP32-D0WD-V3，4MB Flash，ST7789 240×320，CH340 串口） |
-| Mac | macOS 14 或更新版本 |
-| 固件工具链 | [PlatformIO](https://platformio.org/) |
-| Mac 端工具链 | Xcode 命令行工具（Swift 6） |
+| Board | ESP32-2432S024R (ESP32-D0WD-V3, 4 MB flash, ST7789 240×320, CH340 serial) |
+| Mac | macOS 14 or later |
+| Firmware toolchain | [PlatformIO](https://platformio.org/) |
+| Mac toolchain | Xcode Command Line Tools (Swift 6) |
 
-## 快速开始
+## Quick start
 
-### 1. 烧录固件
+```bash
+git clone git@github.com:pokoblin/esp32-2432S024r-macos.git
+cd esp32-2432S024r-macos
+```
+
+### 1. Flash the firmware
 
 ```bash
 cd sysmon/firmware
 pio run -e esp32dev -t upload
 ```
 
-`platformio.ini` 里的串口写的是 `/dev/cu.usbserial-114110`，换了 USB 口要改成你自己的（用 `ls /dev/cu.usbserial-*` 查看）。烧录前先退出 Sysmon，否则串口被占用会失败。
+`platformio.ini` uses `/dev/cu.usbserial-114110`; change it to your port (`ls /dev/cu.usbserial-*`). Quit Sysmon before flashing, or the port will be busy.
 
-> 这块板子经过 USB Hub 时，921600 和 460800 的烧录速率都会出错，所以 `upload_speed` 固定为 115200。
+> Through a USB hub this board fails to flash at 921600 and 460800, so `upload_speed` is fixed at 115200.
 
-### 2. 安装菜单栏程序
+### 2. Install the menu bar app
 
 ```bash
 cd sysmon/macos
@@ -145,82 +123,81 @@ bash scripts/bundle.sh
 open ~/Applications/Sysmon.app
 ```
 
-`bundle.sh` 会编译 release 版本、生成 `Sysmon.app`、做 ad-hoc 签名，并安装到 `~/Applications`。需要开机自动运行的话，在设置窗口里打开“开机时启动”。
+`bundle.sh` builds a release, creates `Sysmon.app`, signs it ad hoc and installs it into `~/Applications`. Turn on "Launch at Login" in Settings if you like.
 
-## 目录结构
+## Development
 
-```
-sysmon/
-  firmware/            ESP32 固件（PlatformIO + Arduino + LovyanGFX）
-    lib/sysmon_core/   纯逻辑：协议解析（含页面、用量、番茄和横幅行）、熄屏状态、曲线历史、各屏文案格式化、点击防抖、配色、呼吸灯曲线
-    src/               屏幕配置、画面绘制、RGB 灯、横幅标题小字库（生成的）、主循环
-    test/              在电脑上跑的单元测试
-  macos/               Mac 菜单栏程序（SwiftPM）
-    Sources/SysmonCore/  采集 CPU/内存/网速、串口、设备识别、用量凭据与解析、切屏顺序、番茄钟与健康提醒规则
-    Sources/Sysmon/      SwiftUI 菜单栏界面、设置窗口、全局快捷键
-    scripts/bundle.sh    打包并安装 .app
-  tools/fake_feed.py   给板子发模拟数据（含用量屏、番茄和横幅），不用 Mac 端程序也能调屏幕
-  tools/make_banner_font.swift  从思源黑体生成横幅标题的小字库
-hw_probe/              硬件探测固件：识别屏幕驱动、触摸芯片和引脚
-touch_diag/            XPT2046 触摸原始信号诊断
-touch_test/            触摸校准与画点测试；board.h 是验证过的屏幕配置
-.superpowers/          设计阶段的界面效果图
-docs/images/           README 示意图及其生成脚本
-```
-
-## 开发
-
-运行测试：
+Run the tests:
 
 ```bash
 cd sysmon/firmware && pio test -e native
 cd sysmon/macos && swift test
 ```
 
-不开 Sysmon，直接给板子发模拟数据。脚本需要 pyserial（`pip install pyserial`，PlatformIO 自带的 Python 环境里已经有了）：
+Drive the board without Sysmon (needs pyserial; PlatformIO's Python already has it):
 
 ```bash
-python sysmon/tools/fake_feed.py /dev/cu.usbserial-114110
-python sysmon/tools/fake_feed.py /dev/cu.usbserial-114110 --page cl    # 从 Claude 屏开始，可选 sys / pomo / cl / gpt
-python sysmon/tools/fake_feed.py /dev/cu.usbserial-114110 --cycle      # 自动轮流切屏
-python sysmon/tools/fake_feed.py /dev/cu.usbserial-114110 --page pomo --phase paused   # 番茄阶段：idle / focus / short / long / paused
-python sysmon/tools/fake_feed.py /dev/cu.usbserial-114110 --banner done                # 横幅：done / brk / sit / water
+python sysmon/tools/fake_feed.py /dev/cu.usbserial-114110                    # sys / pomo / cl / gpt with --page
+python sysmon/tools/fake_feed.py /dev/cu.usbserial-114110 --cycle            # rotate screens automatically
+python sysmon/tools/fake_feed.py /dev/cu.usbserial-114110 --page pomo --phase paused
+python sysmon/tools/fake_feed.py /dev/cu.usbserial-114110 --banner done      # done / brk / sit / water
 python sysmon/tools/fake_feed.py /dev/cu.usbserial-114110 --off
 ```
 
-### 串口协议
+Banner titles use a tiny font that contains only the characters they need (the firmware already uses over 90% of its flash). After changing the titles in `lib/sysmon_core/banner_titles.h`, regenerate it; the font is Source Han Sans CN Bold (SIL Open Font License 1.1) and must be installed locally:
 
-115200 8N1，纯文本，一行一条：
+```bash
+swift sysmon/tools/make_banner_font.swift ~/Library/Fonts/SourceHanSansCN-Bold.otf 24
+```
+
+The README pictures are generated by `docs/images/make_preview.py` and `docs/images/make_screens.py`; the commands are in each script's header.
+
+### Serial protocol
+
+115200 8N1, plain text, one record per line:
 
 ```
 S cpu=37 mem=51 lvl=1 rx=13002342 tx=880640
 OFF
 ```
 
-| 字段 | 含义 |
+| Field | Meaning |
 |---|---|
-| `cpu` | CPU 占用，0–100 |
-| `mem` | 内存压力百分比，0–100 |
-| `lvl` | 内存压力等级：1 正常，2 警告，4 严重 |
-| `rx` / `tx` | 下载 / 上传速度，字节每秒 |
-| `OFF` | 立即熄屏，收到下一条 `S` 行时恢复 |
+| `cpu` | CPU usage, 0–100 |
+| `mem` | memory pressure percent, 0–100 |
+| `lvl` | memory pressure level: 1 normal, 2 warning, 4 critical |
+| `rx` / `tx` | download / upload speed, bytes per second |
+| `OFF` | turn the screen off until the next `S` line |
 
-固件会忽略不认识的行和字段，以后加指标时可以直接加字段。
+The firmware ignores unknown lines and fields. Pages, usage, pomodoro and banners use the `P`, `U`, `T` and `B` lines, and the board sends `TAP` when tapped: see the header comments of `usage_protocol.h`, `timer_protocol.h` and `Protocol.swift`.
 
-切屏、用量、番茄和横幅用另外几种行（`P`、`U`、`T`、`B`，以及板子被点击时回传的 `TAP`）。`P`、`U` 行的格式见 `usage_protocol.h` 的头注释，`T`、`B` 行见 `timer_protocol.h`，`TAP` 行见 `Protocol.swift`。
+## Repository layout
 
-横幅大标题用的是一份只收了标题用字的小字库（固件 Flash 已经用了九成多，放不下完整的大号中文字库）。改了 `lib/sysmon_core/banner_titles.h` 里的标题后要重新生成：
-
-```bash
-swift sysmon/tools/make_banner_font.swift ~/Library/Fonts/SourceHanSansCN-Bold.otf 24
+```
+sysmon/
+  firmware/            ESP32 firmware (PlatformIO + Arduino + LovyanGFX)
+    lib/sysmon_core/   pure logic: protocol parsing, screen-off state, chart history, copy, tap debounce, colors, breathing curve
+    src/               display config, drawing, RGB light, generated banner font, main loop
+    test/              unit tests that run on the computer
+  macos/               menu bar app (SwiftPM)
+    Sources/SysmonCore/  CPU/memory/network sampling, serial, device discovery, usage credentials and parsing,
+                         page order, pomodoro and reminder rules, localization
+    Sources/Sysmon/      SwiftUI menu bar UI, Settings, About, global shortcuts
+    scripts/bundle.sh    build and install the .app
+  tools/fake_feed.py   fake data for the board, no Mac app needed
+  tools/make_banner_font.swift  generates the banner title font
+hw_probe/              hardware probe firmware: display driver, touch chip and pins
+touch_diag/            raw XPT2046 touch diagnostics
+touch_test/            touch calibration and drawing test; board.h is the verified display config
+.superpowers/          UI mockups from the design phase
+docs/images/           README pictures and their generators
+docs/readme/           translated READMEs
 ```
 
-字体用的是思源黑体 CN Bold（SIL Open Font License 1.1），需要先装在本机。
+## Hardware notes
 
-## 硬件备忘
-
-- 屏幕驱动是 **ST7789**，不是 ILI9341。用 `Panel_ILI9341` 驱动时画面会转置加镜像。
-- LovyanGFX 配置：`rgb_order=false`（设为 true 会红蓝互换），`invert=false`，rotation 0。
-- 背光接 GPIO27，高电平点亮；屏幕的 MISO 没接，读不出芯片 ID。
-- 背面的 RGB 灯是共阳的，低电平点亮：GPIO4 红、GPIO16 蓝、GPIO17 绿（蓝绿和网上常见的说法相反）。
-- CH340 通过 DTR/RTS 控制 EN 和 GPIO0。Sysmon 打开串口后会立即同时清掉 DTR 和 RTS，并关闭 `HUPCL`，所以打开、关闭串口都不会复位板子。
+- The display controller is an **ST7789**, not an ILI9341. With `Panel_ILI9341` the picture comes out transposed and mirrored.
+- LovyanGFX settings: `rgb_order=false` (true swaps red and blue), `invert=false`, rotation 0.
+- Backlight on GPIO27, active high. The display's MISO isn't connected, so its ID can't be read.
+- The RGB LED on the back is common-anode, active low: GPIO4 red, GPIO16 blue, GPIO17 green (blue and green are the other way round from what most CYD notes say).
+- The CH340 drives EN and GPIO0 through DTR/RTS. Sysmon clears both right after opening the port and turns off `HUPCL`, so opening or closing the port never resets the board.
