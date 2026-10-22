@@ -28,7 +28,7 @@ struct MenuContent: View {
         // 菜单栏程序没有 Dock 图标：每次点击都先激活 App 再打开设置，窗口才会成为 key 并在最前
         // （用 SettingsLink 的话菜单项上的手势不会触发，也就没法在点击时激活）
         Button("设置…") {
-            NSApp.activate()
+            forceActivate()
             openSettings()
         }
         Divider()
@@ -36,3 +36,20 @@ struct MenuContent: View {
             .keyboardShortcut("q")
     }
 }
+
+/// 强制把 App 切到前台。
+/// macOS 14 起 NSApp.activate() 是“协作式”的：要当前前台程序让出才生效。
+/// 菜单栏菜单由系统代为显示，点菜单项不算点了本 App，请求会被直接拒绝（实测前台仍是原来的程序），
+/// 临时切成 .regular 也一样。只有已标记弃用的 activate(ignoringOtherApps:) 还能立即切过来。
+/// 经协议调用，避免弃用警告。
+@MainActor
+private func forceActivate() {
+    (NSApp as LegacyActivation).activate(ignoringOtherApps: true)
+}
+
+@MainActor
+private protocol LegacyActivation {
+    func activate(ignoringOtherApps flag: Bool)
+}
+
+extension NSApplication: LegacyActivation {}
