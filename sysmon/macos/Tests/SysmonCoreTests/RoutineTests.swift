@@ -224,3 +224,152 @@ private func run(_ h: inout HealthTracker, from: Date, seconds: Int,
     g.tick(now: end + 30, idleSeconds: 0, gateActive: true)
     #expect(g.minutes(.sit) == 10)
 }
+
+// MARK: - 横幅规则、今日统计、跨日
+
+private let shanghai: Calendar = {
+    var c = Calendar(identifier: .gregorian)
+    c.timeZone = TimeZone(identifier: "Asia/Shanghai")!
+    return c
+}()
+
+private func local(_ y: Int, _ m: Int, _ d: Int, _ h: Int, _ mi: Int) -> Date {
+    shanghai.date(from: DateComponents(year: y, month: m, day: d, hour: h, minute: mi))!
+}
+
+/// 每 2 秒 tick 一次，覆盖 [from, from+seconds]；返回结束时刻。
+@discardableResult
+private func run(_ r: inout Routine, from: Date, seconds: Int,
+                 idle: TimeInterval = 0, gate: Bool = true) -> Date {
+    var s = 0
+    while s <= seconds {
+        r.tick(now: from + TimeInterval(s), idleSeconds: idle, gateActive: gate, calendar: shanghai)
+        s += 2
+    }
+    return from + TimeInterval(seconds)
+}
+
+private func shortRoutine() -> Routine {
+    Routine(pomodoro: Pomodoro(config: PomodoroConfig(focusMinutes: 1, shortBreakMinutes: 1)))
+}
+
+@Test func focusDoneBannerCarriesSuppressedReminders() {
+    var r = Routine()
+    r.health.config.sitMinutes = 10
+    run(&r, from: t0, seconds: 0)
+    r.start(now: t0)
+    run(&r, from: t0 + 2, seconds: 11 * 60)
+    #expect(r.health.due.contains(.sit) && r.banner == nil)
+    run(&r, from: t0 + 2 + 11 * 60 + 2, seconds: 1500 - 11 * 60 - 4)
+    #expect(r.banner == Banner(kind: .focusDone, minutes: nil, extras: [.sit]))
+    #expect(r.health.due.isEmpty)
+    #expect(r.stats.count == 1 && r.stats.focusSeconds == 1500)
+}
+
+@Test func pausedFocusStillSuppresses() {
+    var r = Routine()
+    r.health.config.waterMinutes = 1
+    r.start(now: t0)
+    r.pause(now: t0 + 1)
+    run(&r, from: t0 + 2, seconds: 120)
+    #expect(r.health.due.contains(.water) && r.banner == nil)
+}
+
+@Test func healthBannerShownBeforeFocusIsHiddenOnceFocusStarts() {
+    var r = Routine()
+    r.health.config.waterMinutes = 1
+    let now = run(&r, from: t0, seconds: 62)
+    #expect(r.banner?.kind == .water && r.banner?.minutes == 1)
+    r.start(now: now)
+    #expect(r.banner == nil)
+    run(&r, from: now + 2, seconds: 1500)
+    #expect(r.banner == Banner(kind: .focusDone, minutes: nil, extras: [.water]))
+}
+
+@Test func skipFocusReleasesSuppressed() {
+    var r = Routine()
+    r.health.config.sitMinutes = 1
+    r.start(now: t0)
+    let now = run(&r, from: t0, seconds: 70)
+    #expect(r.banner == nil)
+    r.skip(now: now)
+    #expect(r.banner?.kind == .sit)
+}
+
+@Test func breakEndedReplacesFocusDoneAndClearsOnStart() {
+    var r = Routine()
+    r.start(now: t0)
+    run(&r, from: t0, seconds: 1500)
+    #expect(r.banner?.kind == .focusDone)
+    let now = run(&r, from: t0 + 1502, seconds: 298)
+    #expect(r.banner?.kind == .breakEnded)
+    r.start(now: now)
+    #expect(r.banner == nil)
+}
+
+@Test func priorityOrder() {
+    var r = shortRoutine()
+    r.health.config.sitMinutes = 1
+    r.health.config.waterMinutes = 1
+    r.start(now: t0)
+    run(&r, from: t0, seconds: 130)
+    #expect(r.banner?.kind == .breakEnded && r.health.due == [.sit, .water])
+    var dismissed = [r.dismissBanner()]
+    #expect(r.banner?.kind == .sit)
+    dismissed.append(r.dismissBanner())
+    #expect(r.banner?.kind == .water)
+    dismissed.append(r.dismissBanner())
+    #expect(r.banner == nil)
+    dismissed.append(r.dismissBanner())
+    #expect(dismissed == [true, true, true, false])
+}
+
+@Test func dismissSitAcknowledges() {
+    var r = Routine()
+    r.health.config.sitMinutes = 1
+    run(&r, from: t0, seconds: 62)
+    #expect(r.banner?.kind == .sit)
+    r.dismissBanner()
+    #expect(r.health.minutes(.sit) == 0 && r.banner == nil)
+}
+
+@Test func longGateCloseExpiresBreakEndedAndWater() {
+    for (closedMinutes, expected) in [(31, nil), (10, BannerKind.breakEnded)] as [(Int, BannerKind?)] {
+        var r = shortRoutine()
+        r.health.config.waterMinutes = 1
+        r.start(now: t0)
+        var now = run(&r, from: t0, seconds: 130)
+        #expect(r.banner?.kind == .breakEnded)
+        now = run(&r, from: now + 2, seconds: closedMinutes * 60, gate: false)
+        run(&r, from: now + 2, seconds: 0)
+        #expect(r.banner?.kind == expected)
+    }
+}
+
+@Test func sleepingThroughFocusAndBreakShowsOnlyBreakEnded() {
+    var r = Routine()
+    r.start(now: t0)
+    r.tick(now: t0, idleSeconds: 0, gateActive: true, calendar: shanghai)
+    r.tick(now: t0 + 2400, idleSeconds: 0, gateActive: true, calendar: shanghai)
+    #expect(r.stats.count == 1 && r.banner?.kind == .breakEnded)
+}
+
+@Test func midnightResetsStatsAndRound() {
+    var r = Routine(pomodoro: Pomodoro(config: PomodoroConfig(focusMinutes: 35)))
+    let start = local(2026, 10, 22, 23, 30)
+    run(&r, from: start, seconds: 0)
+    r.start(now: start)
+    run(&r, from: start + 2, seconds: 35 * 60)
+    // 跨零点的专注算在结束那天
+    #expect(r.stats == TodayStats(day: "2026-10-23", count: 1, focusSeconds: 2100))
+
+    var q = shortRoutine()
+    var now = local(2026, 10, 22, 23, 50)
+    for _ in 1...2 {
+        q.start(now: now)
+        now = run(&q, from: now, seconds: 122) + 2
+    }
+    #expect(q.pomodoro.round == 3 && q.stats.count == 2)
+    run(&q, from: now, seconds: 15 * 60)
+    #expect(q.pomodoro.round == 1 && q.stats.count == 0 && q.stats.day == "2026-10-23")
+}
