@@ -430,3 +430,11 @@ private func secondFocus() -> (Pomodoro, Date) {
     #expect(pomodoroMenuStatus(p, stats: stats, now: now + 755) == "番茄 · 短休 4:59")
     #expect(pomodoroMenuStatus(Pomodoro(), stats: stats, now: now) == "番茄 · 今天 5 个")
 }
+
+// MARK: - 快捷键冲突
+
+@Test func hotKeyConflictDetection() {
+    #expect(hotKeyConflicts(keyCode: 35, modifiers: 2304, otherKeyCode: 35, otherModifiers: 2304))
+    #expect(!hotKeyConflicts(keyCode: 35, modifiers: 2304, otherKeyCode: 35, otherModifiers: 256))
+    #expect(!hotKeyConflicts(keyCode: 35, modifiers: 2304, otherKeyCode: nil, otherModifiers: nil))
+}

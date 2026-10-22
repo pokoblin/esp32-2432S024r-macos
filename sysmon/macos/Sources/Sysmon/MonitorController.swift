@@ -10,8 +10,12 @@ final class MonitorController: ObservableObject {
     @Published private(set) var launchAtLogin = false
     /// 全局快捷键注册失败（例如被别的程序占用），设置窗口据此提示
     @Published private(set) var hotKeyFailed = false
+    @Published private(set) var pomodoroHotKeyFailed = false
+    /// 两个快捷键录成了同一个组合；后录的那个不生效
+    @Published private(set) var hotKeyConflict = false
     let preferences = Preferences()
     let usage: UsageController
+    let routine: RoutineController
 
     private static let interval: TimeInterval = 2
 
@@ -20,16 +24,21 @@ final class MonitorController: ObservableObject {
     private var sampler = MetricsSampler()
     private var timer: Timer?
     private let hotKey = HotKeyCenter()
+    private let pomodoroHotKey = HotKeyCenter()
     // 工作时持有，防止 App Nap 拖慢定时器；暂停期间释放
     private var activity: NSObjectProtocol?
     private var observers: [(NotificationCenter, NSObjectProtocol)] = []
 
     init() {
         usage = UsageController(preferences: preferences)
+        routine = RoutineController(preferences: preferences)
         launchAtLogin = SMAppService.mainApp.status == .enabled
         // 快捷键和板子的 TAP 都走 advancePage，保证只有一份「当前页」
         hotKey.onPress = { [weak self] in self?.advancePage() }
         hotKeyFailed = !hotKey.register(preferences.hotKey)
+        pomodoroHotKey.onPress = { [weak self] in self?.routine.toggle() }
+        pomodoroHotKeyFailed = !pomodoroHotKey.register(preferences.pomodoroHotKey)
+        routine.onChange = { [weak self] in self?.sendRoutineLines() }
         setActivity(true)
         observeSystemEvents()
 
@@ -58,6 +67,8 @@ final class MonitorController: ObservableObject {
     // MARK: - 采集与发送
 
     private func tick() {
+        // 番茄钟和离开时间在熄屏时也要推进，只是不发数据
+        routine.tick(gateActive: gate.active)
         guard gate.active else { return }
         // 用量拉取按自己的节奏排期，放在 defer 里：不受采样基线阶段提前返回的影响
         defer { usage.tick(gateActive: gate.active) }
@@ -66,7 +77,7 @@ final class MonitorController: ObservableObject {
         guard let sample = sampler.sample(cpu: readCPUTicks(), counters: readPhysicalCounters(),
                                           memory: readMemoryPressure(),
                                           now: ProcessInfo.processInfo.systemUptime) else { return }
-        // 发送顺序固定：S → P → U。系统状态数据停在用量页时也照常发，曲线才连续
+        // 发送顺序固定：S → P → T → B → U。系统状态数据停在别的页时也照常发，曲线才连续
         send([encodeSample(sample)] + pageLines())
     }
 
@@ -79,12 +90,12 @@ final class MonitorController: ObservableObject {
         }
     }
 
-    /// 当前页的 P 行；当前页是用量页时再带一条 U 行。
+    /// 当前页的 P 行、番茄的 T 行、横幅的 B 行；当前页是用量页时再带一条 U 行。
     private func pageLines() -> [String] {
         let enabled = preferences.enabledPages
         let page = resolvePage(preferences.page, enabled: enabled)
         if page != preferences.page { preferences.page = page }
-        var lines = [encodePage(page, enabled: enabled)]
+        var lines = [encodePage(page, enabled: enabled), routine.timerLine(), routine.bannerLine()]
         let service: UsageService? = switch page {
         case .sys, .pomodoro: nil
         case .claude: .claude
@@ -100,9 +111,14 @@ final class MonitorController: ObservableObject {
 
     // MARK: - 切屏与设置
 
-    /// 快捷键和板子的 TAP 的唯一入口：熄屏时不动，只有系统状态屏时也不动。
+    /// 快捷键和板子的 TAP 的唯一入口：熄屏时不动；有横幅时只关横幅；只有系统状态屏时不动。
     func advancePage() {
         guard gate.active else { return }
+        // 关横幅时 onChange 已经发了 T、B，这里补发 P，板子据此重画原来那屏
+        if routine.dismissBanner() {
+            send(pageLines())
+            return
+        }
         let enabled = preferences.enabledPages
         guard enabled.count > 1 else { return }
         preferences.page = nextPage(after: resolvePage(preferences.page, enabled: enabled), enabled: enabled)
@@ -123,8 +139,39 @@ final class MonitorController: ObservableObject {
     }
 
     func setHotKey(_ combo: HotKeyCombo?) {
+        guard !conflicts(combo, preferences.pomodoroHotKey) else { return }
         preferences.hotKey = combo
         hotKeyFailed = !hotKey.register(combo)
+    }
+
+    func setPomodoroHotKey(_ combo: HotKeyCombo?) {
+        guard !conflicts(combo, preferences.hotKey) else { return }
+        preferences.pomodoroHotKey = combo
+        pomodoroHotKeyFailed = !pomodoroHotKey.register(combo)
+        sendRoutineLines()  // 底栏提示跟着有没有快捷键变
+    }
+
+    /// 开关番茄屏：当前页被关掉就回系统状态屏。番茄钟本身照常可用。
+    func setPomodoroEnabled(_ on: Bool) {
+        preferences.pomodoroEnabled = on
+        preferences.page = resolvePage(preferences.page, enabled: preferences.enabledPages)
+        guard gate.active else { return }
+        send(pageLines())
+    }
+
+    /// 和另一个快捷键撞了就记下来、不生效；不撞就清掉提示。
+    private func conflicts(_ combo: HotKeyCombo?, _ other: HotKeyCombo?) -> Bool {
+        hotKeyConflict = combo.map {
+            hotKeyConflicts(keyCode: $0.keyCode, modifiers: $0.carbonModifiers,
+                            otherKeyCode: other?.keyCode, otherModifiers: other?.carbonModifiers)
+        } ?? false
+        return hotKeyConflict
+    }
+
+    /// 番茄状态或横幅变了：立刻发 T、B，不等下一个 2 秒。
+    private func sendRoutineLines() {
+        guard gate.active else { return }
+        send([routine.timerLine(), routine.bannerLine()])
     }
 
     /// 依次尝试每个 WCH 串口，第一个能打开的就是板子。
