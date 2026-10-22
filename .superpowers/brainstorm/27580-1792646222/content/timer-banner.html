@@ -1,0 +1,186 @@
+<style>
+  .scr { width:240px; height:320px; background:#0b0d10; color:#e8eaed; font-family:-apple-system,"PingFang SC",sans-serif;
+         box-sizing:border-box; overflow:hidden; position:relative; zoom:1.2; outline:6px solid #222; border-radius:2px; }
+  .lbl { font-size:12px; color:#8a9099; }
+  .dim { font-size:10px; color:#5c626b; }
+  .num { font-weight:700; font-variant-numeric:tabular-nums; }
+  .wrap { display:flex; gap:24px; align-items:flex-start; justify-content:center; flex-wrap:wrap; padding:12px 0 }
+  .col { display:flex; flex-direction:column; align-items:center; gap:10px; cursor:pointer; padding:10px; border-radius:10px; border:2px solid transparent }
+  .col.selected { border-color:#0a84ff }
+  .col h3 { margin:0 } .col p { margin:0; max-width:300px; font-size:13px; line-height:1.6 }
+  .abs { position:absolute }
+  .tomato { color:#ff6347 }
+  .sec { max-width:1000px; margin:28px auto 0; border-top:1px solid #333; padding-top:18px }
+  .sec > h2 { margin:0 0 4px }
+  .ban-title { font-size:20px; font-weight:700 }
+</style>
+
+<!-- 系统状态屏的公共部分 -->
+<template id="sys"></template>
+
+<div class="sec" style="border-top:none;margin-top:0;padding-top:0">
+<h2>① 停在别的屏时，番茄倒计时放哪？</h2>
+<p class="subtitle">只在番茄钟走着或暂停时出现，没开始时什么都不画。Claude、ChatGPT 屏三版都一样：放在顶栏正中间（见最右）。系统状态屏顶上只有约 15px 空白，所以给了三种放法。</p>
+
+<div class="wrap">
+
+  <div class="col" data-choice="sys-a" onclick="toggleSelect(this)">
+    <h3>A · 左上角小字</h3>
+    <div class="scr">
+      <div class="abs" style="left:12px;top:3px;font-size:10px" ><span class="tomato">● 专注</span> <span class="num" style="color:#e8eaed">12:34</span></div>
+      <div class="abs" style="right:12px;top:4px;font-size:8px;color:#3a3f46;letter-spacing:2px">●<span style="color:#8a9099">●</span>●●</div>
+      <svg class="abs" style="left:0;top:0" width="240" height="140">
+        <circle cx="64" cy="66" r="40" fill="none" stroke="#1c2026" stroke-width="10"/>
+        <circle cx="64" cy="66" r="40" fill="none" stroke="#34c759" stroke-width="10" stroke-linecap="round" stroke-dasharray="57.8 251.3" transform="rotate(-90 64 66)"/>
+        <text x="64" y="75" text-anchor="middle" font-size="25" font-weight="700" fill="#e8eaed">23</text>
+        <text x="64" y="127" text-anchor="middle" font-size="12" fill="#8a9099">CPU %</text>
+        <circle cx="176" cy="66" r="40" fill="none" stroke="#1c2026" stroke-width="10"/>
+        <circle cx="176" cy="66" r="40" fill="none" stroke="#34c759" stroke-width="10" stroke-linecap="round" stroke-dasharray="100 251.3" transform="rotate(-90 176 66)"/>
+        <text x="176" y="75" text-anchor="middle" font-size="25" font-weight="700" fill="#34c759">40</text>
+        <text x="176" y="127" text-anchor="middle" font-size="12" fill="#8a9099">内存压力 %</text>
+      </svg>
+      <div class="abs" style="left:12px;right:12px;top:134px;border-top:1px solid #1c2026;padding-top:7px;display:flex;justify-content:space-between"><span class="lbl">↓ 下载</span><span class="lbl">↑ 上传</span></div>
+      <div class="abs" style="left:12px;right:12px;top:160px;display:flex;justify-content:space-between;align-items:baseline"><span><span class="num" style="font-size:24px;color:#64d2ff">3.42</span> <span class="lbl">MB/s</span></span><span><span class="num" style="font-size:24px;color:#ff9f0a">0.18</span> <span class="lbl">MB/s</span></span></div>
+      <svg class="abs" style="left:12px;top:208px" width="216" height="90"><path d="M0 86 L20 70 L40 75 L60 40 L80 52 L100 30 L120 60 L140 45 L160 66 L180 50 L200 58 L216 44 L216 86 Z" fill="#182b34"/><path d="M0 86 L20 70 L40 75 L60 40 L80 52 L100 30 L120 60 L140 45 L160 66 L180 50 L200 58 L216 44" stroke="#64d2ff" fill="none"/><path d="M0 84 L40 82 L80 80 L120 83 L160 78 L216 81" stroke="#ff9f0a" fill="none"/></svg>
+    </div>
+    <p>圆环整体下移约 6px，腾出左上角写“● 专注 12:34”。位置最显眼，但顶上会比现在挤一点。</p>
+  </div>
+
+  <div class="col" data-choice="sys-b" onclick="toggleSelect(this)">
+    <h3>B · 网速标题行中间</h3>
+    <div class="scr">
+      <div class="abs" style="right:12px;top:4px;font-size:8px;color:#3a3f46;letter-spacing:2px">●<span style="color:#8a9099">●</span>●●</div>
+      <svg class="abs" style="left:0;top:0" width="240" height="140">
+        <circle cx="64" cy="60" r="40" fill="none" stroke="#1c2026" stroke-width="10"/>
+        <circle cx="64" cy="60" r="40" fill="none" stroke="#34c759" stroke-width="10" stroke-linecap="round" stroke-dasharray="57.8 251.3" transform="rotate(-90 64 60)"/>
+        <text x="64" y="69" text-anchor="middle" font-size="25" font-weight="700" fill="#e8eaed">23</text>
+        <text x="64" y="122" text-anchor="middle" font-size="12" fill="#8a9099">CPU %</text>
+        <circle cx="176" cy="60" r="40" fill="none" stroke="#1c2026" stroke-width="10"/>
+        <circle cx="176" cy="60" r="40" fill="none" stroke="#34c759" stroke-width="10" stroke-linecap="round" stroke-dasharray="100 251.3" transform="rotate(-90 176 60)"/>
+        <text x="176" y="69" text-anchor="middle" font-size="25" font-weight="700" fill="#34c759">40</text>
+        <text x="176" y="122" text-anchor="middle" font-size="12" fill="#8a9099">内存压力 %</text>
+      </svg>
+      <div class="abs" style="left:12px;right:12px;top:134px;border-top:1px solid #1c2026;padding-top:7px;display:flex;justify-content:space-between;align-items:center"><span class="lbl">↓ 下载</span><span style="font-size:11px"><span class="tomato">● 专注</span> <span class="num">12:34</span></span><span class="lbl">↑ 上传</span></div>
+      <div class="abs" style="left:12px;right:12px;top:160px;display:flex;justify-content:space-between;align-items:baseline"><span><span class="num" style="font-size:24px;color:#64d2ff">3.42</span> <span class="lbl">MB/s</span></span><span><span class="num" style="font-size:24px;color:#ff9f0a">0.18</span> <span class="lbl">MB/s</span></span></div>
+      <svg class="abs" style="left:12px;top:208px" width="216" height="90"><path d="M0 86 L20 70 L40 75 L60 40 L80 52 L100 30 L120 60 L140 45 L160 66 L180 50 L200 58 L216 44 L216 86 Z" fill="#182b34"/><path d="M0 86 L20 70 L40 75 L60 40 L80 52 L100 30 L120 60 L140 45 L160 66 L180 50 L200 58 L216 44" stroke="#64d2ff" fill="none"/><path d="M0 84 L40 82 L80 80 L120 83 L160 78 L216 81" stroke="#ff9f0a" fill="none"/></svg>
+    </div>
+    <p>现有布局一个像素都不动，塞进“↓ 下载”和“↑ 上传”中间的空位。不太抢眼，但扫一眼也能看到。</p>
+  </div>
+
+  <div class="col" data-choice="sys-c" onclick="toggleSelect(this)">
+    <h3>C · 顶边一条细线</h3>
+    <div class="scr">
+      <div class="abs" style="left:0;top:0;height:3px;width:50%;background:#ff6347"></div>
+      <div class="abs" style="left:50%;top:0;height:3px;right:0;background:#1c2026"></div>
+      <div class="abs" style="right:12px;top:6px;font-size:8px;color:#3a3f46;letter-spacing:2px">●<span style="color:#8a9099">●</span>●●</div>
+      <svg class="abs" style="left:0;top:0" width="240" height="140">
+        <circle cx="64" cy="60" r="40" fill="none" stroke="#1c2026" stroke-width="10"/>
+        <circle cx="64" cy="60" r="40" fill="none" stroke="#34c759" stroke-width="10" stroke-linecap="round" stroke-dasharray="57.8 251.3" transform="rotate(-90 64 60)"/>
+        <text x="64" y="69" text-anchor="middle" font-size="25" font-weight="700" fill="#e8eaed">23</text>
+        <text x="64" y="122" text-anchor="middle" font-size="12" fill="#8a9099">CPU %</text>
+        <circle cx="176" cy="60" r="40" fill="none" stroke="#1c2026" stroke-width="10"/>
+        <circle cx="176" cy="60" r="40" fill="none" stroke="#34c759" stroke-width="10" stroke-linecap="round" stroke-dasharray="100 251.3" transform="rotate(-90 176 60)"/>
+        <text x="176" y="69" text-anchor="middle" font-size="25" font-weight="700" fill="#34c759">40</text>
+        <text x="176" y="122" text-anchor="middle" font-size="12" fill="#8a9099">内存压力 %</text>
+      </svg>
+      <div class="abs" style="left:12px;right:12px;top:134px;border-top:1px solid #1c2026;padding-top:7px;display:flex;justify-content:space-between"><span class="lbl">↓ 下载</span><span class="lbl">↑ 上传</span></div>
+      <div class="abs" style="left:12px;right:12px;top:160px;display:flex;justify-content:space-between;align-items:baseline"><span><span class="num" style="font-size:24px;color:#64d2ff">3.42</span> <span class="lbl">MB/s</span></span><span><span class="num" style="font-size:24px;color:#ff9f0a">0.18</span> <span class="lbl">MB/s</span></span></div>
+      <svg class="abs" style="left:12px;top:208px" width="216" height="90"><path d="M0 86 L20 70 L40 75 L60 40 L80 52 L100 30 L120 60 L140 45 L160 66 L180 50 L200 58 L216 44 L216 86 Z" fill="#182b34"/><path d="M0 86 L20 70 L40 75 L60 40 L80 52 L100 30 L120 60 L140 45 L160 66 L180 50 L200 58 L216 44" stroke="#64d2ff" fill="none"/><path d="M0 84 L40 82 L80 80 L120 83 L160 78 L216 81" stroke="#ff9f0a" fill="none"/></svg>
+    </div>
+    <p>不写字，只在屏幕最顶上画一条 3px 的进度线，颜色跟阶段走。最安静，但看不出还剩几分钟。</p>
+  </div>
+
+  <div class="col" style="cursor:default">
+    <h3 style="color:#8a9099">Claude 屏（三版通用）</h3>
+    <div class="scr" style="padding:10px 12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;height:22px"><span style="font-size:15px;font-weight:700;color:#d97757">Claude</span><span style="font-size:11px"><span class="tomato">● 专注</span> <span class="num">12:34</span></span><span style="font-size:8px;color:#3a3f46;letter-spacing:2px">●●<span style="color:#8a9099">●</span>●</span></div>
+      <div style="display:flex;justify-content:center;margin-top:2px">
+        <svg width="160" height="150" viewBox="0 0 160 150">
+          <circle cx="80" cy="70" r="58" fill="none" stroke="#1c2026" stroke-width="14"/>
+          <circle cx="80" cy="70" r="58" fill="none" stroke="#34c759" stroke-width="14" stroke-linecap="round" stroke-dasharray="153 364.4" transform="rotate(-90 80 70)"/>
+          <text x="80" y="76" text-anchor="middle" font-size="40" font-weight="700" fill="#e8eaed">42</text>
+          <text x="80" y="96" text-anchor="middle" font-size="12" fill="#8a9099">5 小时 %</text>
+          <text x="80" y="146" text-anchor="middle" font-size="10" fill="#5c626b">2小时13分后重置</text>
+        </svg>
+      </div>
+      <div style="border-top:1px solid #1c2026;padding-top:8px"><div style="display:flex;justify-content:space-between"><span class="lbl">本周 · 周四 14:00 重置</span><span class="num" style="font-size:14px;color:#ffcc00">67%</span></div><div style="height:8px;background:#1c2026;border-radius:4px;margin-top:4px"><div style="width:67%;height:8px;background:#ffcc00;border-radius:4px"></div></div></div>
+    </div>
+    <p style="color:#8a9099">顶栏中间本来就空着。</p>
+  </div>
+
+</div>
+</div>
+
+<div class="sec">
+<h2>② 提醒横幅长什么样？</h2>
+<p class="subtitle">不管停在哪一屏都盖上来，点一下屏幕关掉、回到原来那屏。每版都画了两种提醒：左边是专注结束（顺带压住的喝水提醒一起出），右边是久坐。</p>
+
+<div class="wrap">
+
+  <div class="col" data-choice="ban-a" onclick="toggleSelect(this)">
+    <h3>A · 整屏换色</h3>
+    <div style="display:flex;gap:14px">
+      <div class="scr" style="background:#0f2a18">
+        <div class="abs" style="left:0;right:0;top:70px;text-align:center">
+          <div class="ban-title" style="color:#34c759">专注完成</div>
+          <div class="lbl" style="margin-top:8px;color:#c8d6cc">休息 5 分钟</div>
+          <div class="num" style="font-size:44px;margin-top:10px">5:00</div>
+        </div>
+        <div class="abs" style="left:24px;right:24px;top:212px;border-top:1px solid #1f4a2c;padding-top:12px;text-align:center;font-size:13px;color:#e8eaed">顺便喝口水</div>
+        <div class="abs dim" style="left:0;right:0;bottom:10px;text-align:center;color:#6f8f78">点一下关掉</div>
+      </div>
+      <div class="scr" style="background:#2e1d08">
+        <div class="abs" style="left:0;right:0;top:90px;text-align:center">
+          <div class="ban-title" style="color:#ff9f0a">该起来走走了</div>
+          <div class="lbl" style="margin-top:12px;color:#d6cbbd">已连续用电脑</div>
+          <div class="num" style="font-size:44px;margin-top:6px">52<span style="font-size:16px;color:#d6cbbd"> 分钟</span></div>
+        </div>
+        <div class="abs dim" style="left:0;right:0;bottom:10px;text-align:center;color:#8f7e66">点一下关掉 · 离开 5 分钟会自己消失</div>
+      </div>
+    </div>
+    <p>整块屏幕换成提醒色的暗底，大字居中。余光最容易注意到，但会把原来那屏完全盖住。</p>
+  </div>
+
+  <div class="col" data-choice="ban-b" onclick="toggleSelect(this)">
+    <h3>B · 下半屏卡片</h3>
+    <div style="display:flex;gap:14px">
+      <div class="scr" style="padding:10px 12px">
+        <div style="display:flex;justify-content:space-between;align-items:center;height:22px"><span style="font-size:15px;font-weight:700;color:#d97757">Claude</span><span style="font-size:8px;color:#3a3f46;letter-spacing:2px">●●<span style="color:#8a9099">●</span>●</span></div>
+        <div style="display:flex;justify-content:center;opacity:.35"><svg width="160" height="150" viewBox="0 0 160 150"><circle cx="80" cy="70" r="58" fill="none" stroke="#1c2026" stroke-width="14"/><circle cx="80" cy="70" r="58" fill="none" stroke="#34c759" stroke-width="14" stroke-dasharray="153 364.4" transform="rotate(-90 80 70)"/><text x="80" y="76" text-anchor="middle" font-size="40" font-weight="700" fill="#e8eaed">42</text></svg></div>
+        <div class="abs" style="left:8px;right:8px;bottom:8px;height:136px;background:#11281a;border:2px solid #34c759;border-radius:10px;text-align:center;padding-top:14px;box-sizing:border-box">
+          <div class="ban-title" style="color:#34c759;font-size:18px">专注完成 · 休息 5:00</div>
+          <div style="margin-top:12px;font-size:13px">顺便喝口水</div>
+          <div class="dim" style="margin-top:22px;color:#6f8f78">点一下关掉</div>
+        </div>
+      </div>
+      <div class="scr" style="padding:10px 12px">
+        <div style="display:flex;justify-content:space-between;align-items:center;height:22px"><span style="font-size:15px;font-weight:700;color:#d97757">Claude</span><span style="font-size:8px;color:#3a3f46;letter-spacing:2px">●●<span style="color:#8a9099">●</span>●</span></div>
+        <div style="display:flex;justify-content:center;opacity:.35"><svg width="160" height="150" viewBox="0 0 160 150"><circle cx="80" cy="70" r="58" fill="none" stroke="#1c2026" stroke-width="14"/><circle cx="80" cy="70" r="58" fill="none" stroke="#34c759" stroke-width="14" stroke-dasharray="153 364.4" transform="rotate(-90 80 70)"/><text x="80" y="76" text-anchor="middle" font-size="40" font-weight="700" fill="#e8eaed">42</text></svg></div>
+        <div class="abs" style="left:8px;right:8px;bottom:8px;height:136px;background:#2b1c09;border:2px solid #ff9f0a;border-radius:10px;text-align:center;padding-top:14px;box-sizing:border-box">
+          <div class="ban-title" style="color:#ff9f0a;font-size:18px">该起来走走了</div>
+          <div style="margin-top:12px;font-size:13px">已连续用电脑 <b>52</b> 分钟</div>
+          <div class="dim" style="margin-top:22px;color:#8f7e66">点一下关掉 · 离开 5 分钟会自己消失</div>
+        </div>
+      </div>
+    </div>
+    <p>上半屏还能看见原来的内容（调暗），下半屏弹出一张卡片。没那么“吓人”，但余光里不如 A 明显。</p>
+  </div>
+
+</div>
+<p class="subtitle" style="max-width:760px;margin:6px auto 0">配色（我定的，可改）：专注结束绿色，休息结束番茄红（“该开始下一个专注了 · 按 ⌥⌘P 开始”），久坐橙色，喝水蓝色。</p>
+</div>
+
+<div class="sec">
+<h2>③ RGB 灯什么时候亮？</h2>
+<p class="subtitle">灯在板子背面，亮起来会在墙上或桌面上映出一片颜色。两版都会在 Sysmon 设置里加一个“RGB 灯”总开关，晚上嫌晃眼可以关掉（我定的）。</p>
+<div class="options">
+  <div class="option" data-choice="led-a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content"><h3>只在横幅出现时亮</h3><p>横幅盖上来的同时，灯用横幅的颜色慢慢呼吸；点掉横幅就灭。平时完全不亮。</p></div>
+  </div>
+  <div class="option" data-choice="led-b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content"><h3>横幅时呼吸，专注中常亮一点暗红</h3><p>像录音室门口的“录音中”灯：专注时一直亮着很暗的红色，别人一看就知道你在专注；横幅时照 A 呼吸。</p></div>
+  </div>
+</div>
+</div>

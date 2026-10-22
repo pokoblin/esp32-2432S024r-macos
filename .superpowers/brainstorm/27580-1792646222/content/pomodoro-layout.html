@@ -1,0 +1,127 @@
+<style>
+  .scr { width:240px; height:320px; background:#0b0d10; color:#e8eaed; font-family:-apple-system,"PingFang SC",sans-serif;
+         box-sizing:border-box; overflow:hidden; position:relative; zoom:1.35; outline:6px solid #222; border-radius:2px; padding:10px 12px; }
+  .lbl { font-size:12px; color:#8a9099; }
+  .dim { font-size:10px; color:#5c626b; }
+  .num { font-weight:700; font-variant-numeric:tabular-nums; }
+  .hdr { display:flex; justify-content:space-between; align-items:center; height:22px; }
+  .brand { font-size:15px; font-weight:700; color:#ff6347; }
+  .dots { font-size:9px; color:#3a3f46; letter-spacing:2px } .dots b { color:#8a9099; font-weight:400 }
+  .foot { position:absolute; left:12px; right:12px; bottom:8px; display:flex; justify-content:space-between; }
+  .bar { height:8px; background:#1c2026; border-radius:4px; overflow:hidden; margin-top:4px }
+  .bar i { display:block; height:100%; border-radius:4px }
+  .rounds { display:flex; gap:8px; justify-content:center; }
+  .rounds span { width:10px; height:10px; border-radius:50%; background:#1c2026; }
+  .rounds span.on { background:#ff6347 } .rounds span.cur { box-shadow:0 0 0 2px #ff6347 inset; background:transparent }
+  .wrap { display:flex; gap:28px; align-items:flex-start; justify-content:center; flex-wrap:wrap; padding:16px 0 }
+  .col { display:flex; flex-direction:column; align-items:center; gap:10px; cursor:pointer; padding:10px; border-radius:10px; border:2px solid transparent }
+  .col.selected { border-color:#0a84ff }
+  .col h3 { margin:0 } .col p { margin:0; max-width:330px; font-size:13px; line-height:1.6 }
+  .legend { display:flex; gap:18px; justify-content:center; font-size:13px; color:#8a9099; margin-top:4px }
+  .legend i { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:6px; vertical-align:-1px }
+</style>
+
+<h2>番茄屏怎么排？</h2>
+<p class="subtitle">竖放 240×320，放大显示，数据是假的。三版都停在“专注中，第 2 个，还剩 12:34”。点一下你喜欢的那版，也可以在终端里说想把哪版的哪部分拼起来。</p>
+
+<div class="wrap">
+
+  <!-- A: hero ring, like the usage screen -->
+  <div class="col" data-choice="a" onclick="toggleSelect(this)">
+    <h3>A · 大圆环（和用量屏同款）</h3>
+    <div class="scr">
+      <div class="hdr"><span class="brand">番茄</span><span class="dots">○<b>●</b>○○</span></div>
+      <div style="display:flex;justify-content:center;margin-top:2px">
+        <svg width="160" height="150" viewBox="0 0 160 150">
+          <circle cx="80" cy="70" r="58" fill="none" stroke="#1c2026" stroke-width="14"/>
+          <circle cx="80" cy="70" r="58" fill="none" stroke="#ff6347" stroke-width="14" stroke-linecap="round" stroke-dasharray="183 364.4" transform="rotate(-90 80 70)"/>
+          <text x="80" y="78" text-anchor="middle" font-size="30" font-weight="700" fill="#e8eaed" style="font-variant-numeric:tabular-nums">12:34</text>
+          <text x="80" y="98" text-anchor="middle" font-size="12" fill="#ff6347">专注</text>
+          <text x="80" y="146" text-anchor="middle" font-size="10" fill="#5c626b">14:52 结束</text>
+        </svg>
+      </div>
+      <div style="border-top:1px solid #1c2026;padding-top:14px">
+        <div class="rounds"><span class="on"></span><span class="cur"></span><span></span><span></span></div>
+        <div class="dim" style="text-align:center;margin-top:6px">第 2 个 · 再 3 个后长休</div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:22px">
+        <span class="lbl">今天</span>
+        <span><span class="num" style="font-size:18px">5</span> <span class="lbl">个 · 2小时05分</span></span>
+      </div>
+      <div class="foot"><span class="dim">⌥⌘P 暂停</span><span class="dim"></span></div>
+    </div>
+    <p>圆环表示这一段还剩多少，越走越短。环里是剩余时间和阶段，下面是这一轮的进度点和今日统计。和 Claude、ChatGPT 屏一个骨架，切屏时最统一。</p>
+  </div>
+
+  <!-- B: giant digits -->
+  <div class="col" data-choice="b" onclick="toggleSelect(this)">
+    <h3>B · 超大数字</h3>
+    <div class="scr">
+      <div class="hdr"><span class="brand">番茄</span><span class="dots">○<b>●</b>○○</span></div>
+      <div style="text-align:center;margin-top:22px">
+        <span class="lbl" style="color:#ff6347;font-size:14px">专注 · 第 2 个</span>
+      </div>
+      <div class="num" style="text-align:center;font-size:62px;line-height:1;margin-top:8px;letter-spacing:-1px">12:34</div>
+      <div class="bar" style="height:10px;margin-top:16px"><i style="width:50%;background:#ff6347"></i></div>
+      <div style="display:flex;justify-content:space-between;margin-top:4px"><span class="dim">已过 12:26</span><span class="dim">14:52 结束</span></div>
+      <div class="rounds" style="margin-top:22px"><span class="on"></span><span class="cur"></span><span></span><span></span></div>
+      <div style="border-top:1px solid #1c2026;margin-top:22px;padding-top:12px;display:flex;justify-content:space-between;align-items:baseline">
+        <span class="lbl">今天</span>
+        <span><span class="num" style="font-size:18px">5</span> <span class="lbl">个 · 2小时05分</span></span>
+      </div>
+      <div class="foot"><span class="dim">⌥⌘P 暂停</span><span class="dim"></span></div>
+    </div>
+    <p>剩余时间占满整行，离远了也看得清；下面一条进度条。比 A 更“钟”的感觉，但和别的屏风格不太一样。</p>
+  </div>
+
+  <!-- C: ring + today's tomatoes -->
+  <div class="col" data-choice="c" onclick="toggleSelect(this)">
+    <h3>C · 圆环 + 今天的番茄墙</h3>
+    <div class="scr">
+      <div class="hdr"><span class="brand">番茄</span><span class="dots">○<b>●</b>○○</span></div>
+      <div style="display:flex;justify-content:center;margin-top:0">
+        <svg width="140" height="128" viewBox="0 0 140 128">
+          <circle cx="70" cy="62" r="50" fill="none" stroke="#1c2026" stroke-width="12"/>
+          <circle cx="70" cy="62" r="50" fill="none" stroke="#ff6347" stroke-width="12" stroke-linecap="round" stroke-dasharray="158 314.2" transform="rotate(-90 70 62)"/>
+          <text x="70" y="69" text-anchor="middle" font-size="26" font-weight="700" fill="#e8eaed" style="font-variant-numeric:tabular-nums">12:34</text>
+          <text x="70" y="87" text-anchor="middle" font-size="11" fill="#ff6347">专注 · 第 2 个</text>
+        </svg>
+      </div>
+      <div style="border-top:1px solid #1c2026;margin-top:6px;padding-top:10px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline">
+          <span class="lbl">今天</span>
+          <span><span class="num" style="font-size:18px">5</span> <span class="lbl">个 · 2小时05分</span></span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(8,1fr);gap:6px;margin-top:12px;justify-items:center">
+          <svg width="18" height="18"><circle cx="9" cy="10" r="7" fill="#ff6347"/><path d="M6 3 L9 5 L12 3" stroke="#34c759" stroke-width="2" fill="none"/></svg>
+          <svg width="18" height="18"><circle cx="9" cy="10" r="7" fill="#ff6347"/><path d="M6 3 L9 5 L12 3" stroke="#34c759" stroke-width="2" fill="none"/></svg>
+          <svg width="18" height="18"><circle cx="9" cy="10" r="7" fill="#ff6347"/><path d="M6 3 L9 5 L12 3" stroke="#34c759" stroke-width="2" fill="none"/></svg>
+          <svg width="18" height="18"><circle cx="9" cy="10" r="7" fill="#ff6347"/><path d="M6 3 L9 5 L12 3" stroke="#34c759" stroke-width="2" fill="none"/></svg>
+          <svg width="18" height="18"><circle cx="9" cy="10" r="7" fill="#ff6347"/><path d="M6 3 L9 5 L12 3" stroke="#34c759" stroke-width="2" fill="none"/></svg>
+          <svg width="18" height="18"><circle cx="9" cy="10" r="6" fill="none" stroke="#ff6347" stroke-width="2" stroke-dasharray="3 2"/></svg>
+          <svg width="18" height="18"><circle cx="9" cy="10" r="6" fill="#1c2026"/></svg>
+          <svg width="18" height="18"><circle cx="9" cy="10" r="6" fill="#1c2026"/></svg>
+          <svg width="18" height="18"><circle cx="9" cy="10" r="6" fill="#1c2026"/></svg>
+          <svg width="18" height="18"><circle cx="9" cy="10" r="6" fill="#1c2026"/></svg>
+          <svg width="18" height="18"><circle cx="9" cy="10" r="6" fill="#1c2026"/></svg>
+          <svg width="18" height="18"><circle cx="9" cy="10" r="6" fill="#1c2026"/></svg>
+        </div>
+        <div class="dim" style="text-align:right;margin-top:8px">目标 12 个</div>
+      </div>
+      <div class="foot"><span class="dim">⌥⌘P 暂停</span><span class="dim">14:52 结束</span></div>
+    </div>
+    <p>圆环小一号，把空间让给今日统计：每完成一个就点亮一颗番茄，正在做的那颗是虚线。需要多一个“每日目标”设置（默认 12）。</p>
+  </div>
+
+</div>
+
+<div class="legend">
+  <span><i style="background:#ff6347"></i>专注</span>
+  <span><i style="background:#34c759"></i>短休</span>
+  <span><i style="background:#64d2ff"></i>长休</span>
+  <span><i style="background:#5c626b"></i>暂停（圆环和数字变灰）</span>
+</div>
+
+<div class="section" style="max-width:760px;margin:16px auto 0;font-size:13px;line-height:1.7;color:#8a9099">
+  三版都有的东西（我定的，可改）：圆环和阶段字的颜色按上面的图例变化；没开始时显示“25:00”和“按 ⌥⌘P 开始专注”（快捷键是示例，你在设置里录）；“14:52 结束”是这一段结束的时刻。页码点变成四个，番茄屏排在系统状态屏后面。
+</div>
