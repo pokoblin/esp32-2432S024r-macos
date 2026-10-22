@@ -17,7 +17,7 @@ import serial
 
 PAGES = ["sys", "cl", "gpt"]
 FAKE_USAGE = {
-    "cl": "U svc=cl st=ok age=60 plan=max h5=42 h5r=7980 wk=67 wkd=4 wkt=1400 op=12 so=28",
+    "cl": "U svc=cl st=ok age=60 plan=max h5=42 h5r=7980 wk=67 wkd=4 wkt=1400 md=Fable mw=12",
     "gpt": "U svc=gpt st=exp age=3600 plan=plus h5=6 wk=35 wkd=2 wkt=900",
 }
 CYCLE_SECS = 6

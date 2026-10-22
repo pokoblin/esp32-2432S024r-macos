@@ -1,7 +1,8 @@
 // Mac 端发来的页面和用量行。
 //   页面：P <sys|cl|gpt> i=<n> n=<n>
 //   用量：U svc=<cl|gpt> st=<ok|exp|err|none> [age=<秒>] [plan=<名>] [h5=<0-100|-1>] [h5r=<秒>]
-//         [wk=<0-100|-1>] [wkd=<1-7>] [wkt=<HHMM>] [op=<0-100|-1>] [so=<0-100|-1>]
+//         [wk=<0-100|-1>] [wkd=<1-7>] [wkt=<HHMM>] [md=<模型名>] [mw=<0-100|-1>]
+//         [op=<0-100|-1>] [so=<0-100|-1>]
 // 字段顺序不限，不认识的字段忽略。
 #pragma once
 #include <stdint.h>
@@ -33,6 +34,8 @@ struct Usage {
   int wk = kAbsent;
   int wkd = kAbsent;  // 周窗口重置的星期，1..7
   int wkt = kAbsent;  // 周窗口重置的时刻，HHMM
+  char model[12] = "";  // 按模型单独计算的每周额度对应的模型名，例如 "Fable"
+  int mw = kAbsent;     // 这个模型的每周额度
   int op = kAbsent;
   int so = kAbsent;
 };

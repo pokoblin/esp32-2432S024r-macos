@@ -252,6 +252,21 @@ static void test_parse_usage_full() {
   TEST_ASSERT_EQUAL(12, u.op); TEST_ASSERT_EQUAL(28, u.so);
   TEST_ASSERT_TRUE(u.received);
 }
+static void test_parse_usage_model_week() {
+  Usage u;
+  TEST_ASSERT_TRUE(parseUsageLine("U svc=cl st=ok age=0 wk=67 wkd=4 wkt=1400 md=Fable mw=4", &u));
+  TEST_ASSERT_EQUAL_STRING("Fable", u.model);
+  TEST_ASSERT_EQUAL(4, u.mw);
+  TEST_ASSERT_TRUE(parseUsageLine("U svc=cl st=ok md=ABCDEFGHIJKLMN mw=-1", &u));
+  TEST_ASSERT_EQUAL_STRING("ABCDEFGHIJK", u.model);  // 截断到缓冲区大小
+  TEST_ASSERT_EQUAL(kReset, u.mw);
+  TEST_ASSERT_TRUE(parseUsageLine("U svc=cl st=ok mw=150", &u));
+  TEST_ASSERT_EQUAL(100, u.mw);
+  TEST_ASSERT_TRUE(parseUsageLine("U svc=cl st=ok", &u));
+  TEST_ASSERT_EQUAL_STRING("", u.model);
+  TEST_ASSERT_EQUAL(kAbsent, u.mw);
+  TEST_ASSERT_FALSE(parseUsageLine("U svc=cl st=ok mw=x", &u));
+}
 static void test_parse_usage_minimal_and_reset() {
   Usage u;
   TEST_ASSERT_TRUE(parseUsageLine("U svc=gpt st=exp", &u));
@@ -444,6 +459,7 @@ int main(int, char**) {
   RUN_TEST(test_parse_page);
   RUN_TEST(test_parse_page_rejects_and_keeps_out);
   RUN_TEST(test_parse_usage_full);
+  RUN_TEST(test_parse_usage_model_week);
   RUN_TEST(test_parse_usage_minimal_and_reset);
   RUN_TEST(test_parse_usage_rejects_and_clamps);
   RUN_TEST(test_parse_usage_more_rejects_and_ranges);

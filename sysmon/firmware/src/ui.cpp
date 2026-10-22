@@ -271,7 +271,8 @@ void drawUsage(LGFX_Sprite& sp, const Usage& u, Service svc, const PageInfo& p, 
 
   sp.drawFastHLine(U_X0, U_DIVIDER_Y - oy, U_X1 - U_X0 + 1, TRACK);
 
-  // 本周和分项：进度条。Opus / Sonnet 只有 Claude 有，没发的那条不画
+  // 本周和分项：进度条。分项只有 Claude 有，按模型额度、Opus、Sonnet 的顺序，
+  // 没发的不画，最多两条（屏幕只放得下三行）
   int y = U_ROW_Y;
   if (u.wk == kReset) {
     snprintf(text, sizeof(text), "本周 · 已重置");
@@ -279,12 +280,15 @@ void drawUsage(LGFX_Sprite& sp, const Usage& u, Service svc, const PageInfo& p, 
     formatWeekReset(u.wkd, u.wkt, text, sizeof(text));
   }
   drawBar(sp, y - oy, text, u.wk);
-  y += U_ROW_PITCH;
-  if (claude && u.op != kAbsent) {
-    drawBar(sp, y - oy, "本周 Opus", u.op);
-    y += U_ROW_PITCH;
+  if (claude) {
+    int extra = 0;
+    if (u.model[0] && u.mw != kAbsent) {
+      snprintf(text, sizeof(text), "本周 %s", u.model);
+      drawBar(sp, y + U_ROW_PITCH * ++extra - oy, text, u.mw);
+    }
+    if (extra < 2 && u.op != kAbsent) drawBar(sp, y + U_ROW_PITCH * ++extra - oy, "本周 Opus", u.op);
+    if (extra < 2 && u.so != kAbsent) drawBar(sp, y + U_ROW_PITCH * ++extra - oy, "本周 Sonnet", u.so);
   }
-  if (claude && u.so != kAbsent) drawBar(sp, y - oy, "本周 Sonnet", u.so);
 
   // 底栏：左套餐名，右数据新鲜度
   formatPlan(u.plan, text, sizeof(text));

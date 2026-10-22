@@ -38,6 +38,14 @@ int percentOrReset(long long v) { return v == -1 ? kReset : clampPercent(v); }
 // 秒数：负数归零，超过 int32 的限幅。
 int32_t clampSeconds(long long v) { return v < 0 ? 0 : v > INT32_MAX ? INT32_MAX : (int32_t)v; }
 
+// 文字字段：截断到缓冲区大小，始终以 NUL 结尾。
+void copyText(const char* val, const char* end, char* dst, size_t size) {
+  size_t n = (size_t)(end - val);
+  if (n > size - 1) n = size - 1;
+  memcpy(dst, val, n);
+  dst[n] = '\0';
+}
+
 }  // namespace
 
 bool parsePageLine(const char* line, PageInfo* out) {
@@ -92,17 +100,16 @@ bool parseUsageLine(const char* line, Usage* out) {
       else return false;
       haveSt = true;
     } else if (keyIs(key, keyLen, "plan")) {
-      // 截断到缓冲区大小，始终以 NUL 结尾
-      size_t n = (size_t)(end - val);
-      if (n > sizeof(u.plan) - 1) n = sizeof(u.plan) - 1;
-      memcpy(u.plan, val, n);
-      u.plan[n] = '\0';
+      copyText(val, end, u.plan, sizeof(u.plan));
+    } else if (keyIs(key, keyLen, "md")) {
+      copyText(val, end, u.model, sizeof(u.model));
     } else {
       bool isAge = keyIs(key, keyLen, "age"), isH5r = keyIs(key, keyLen, "h5r");
       bool isH5 = keyIs(key, keyLen, "h5"), isWk = keyIs(key, keyLen, "wk");
       bool isWkd = keyIs(key, keyLen, "wkd"), isWkt = keyIs(key, keyLen, "wkt");
       bool isOp = keyIs(key, keyLen, "op"), isSo = keyIs(key, keyLen, "so");
-      if (!(isAge || isH5r || isH5 || isWk || isWkd || isWkt || isOp || isSo)) return true;  // 未知字段忽略
+      bool isMw = keyIs(key, keyLen, "mw");
+      if (!(isAge || isH5r || isH5 || isWk || isWkd || isWkt || isOp || isSo || isMw)) return true;  // 未知字段忽略
       long long v;
       if (!parseNumber(val, end, &v)) return false;
       if (isAge) u.age = clampSeconds(v);
@@ -111,6 +118,7 @@ bool parseUsageLine(const char* line, Usage* out) {
       else if (isWk) u.wk = percentOrReset(v);
       else if (isOp) u.op = percentOrReset(v);
       else if (isSo) u.so = percentOrReset(v);
+      else if (isMw) u.mw = percentOrReset(v);
       else if (isWkd) u.wkd = (v >= 1 && v <= 7) ? (int)v : kAbsent;
       else u.wkt = (v >= 0 && v <= 2359 && v % 100 < 60) ? (int)v : kAbsent;
     }
