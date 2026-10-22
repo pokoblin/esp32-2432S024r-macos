@@ -199,7 +199,6 @@ sysmon/
 hw_probe/              hardware probe firmware: display driver, touch chip and pins
 touch_diag/            raw XPT2046 touch diagnostics
 touch_test/            touch calibration and drawing test; board.h is the verified display config
-.superpowers/          UI mockups from the design phase
 docs/images/           README pictures and their generators
 docs/readme/           translated READMEs
 ```

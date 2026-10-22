@@ -199,7 +199,6 @@ sysmon/
 hw_probe/              ハードウェア調査用ファームウェア：ディスプレイドライバ、タッチチップ、ピン
 touch_diag/            XPT2046 タッチの生データ診断
 touch_test/            タッチのキャリブレーションと描画テスト。board.h は検証済みのディスプレイ設定
-.superpowers/          設計段階の UI モックアップ
 docs/images/           README の画像とその生成スクリプト
 docs/readme/           翻訳版 README
 ```

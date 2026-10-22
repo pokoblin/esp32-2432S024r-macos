@@ -199,7 +199,6 @@ sysmon/
 hw_probe/              硬件探测固件：屏幕驱动、触摸芯片和引脚
 touch_diag/            XPT2046 触摸原始数据诊断
 touch_test/            触摸校准和画线测试；board.h 是验证过的屏幕配置
-.superpowers/          设计阶段的界面草图
 docs/images/           README 图片及其生成脚本
 docs/readme/           翻译版 README
 ```

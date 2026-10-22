@@ -199,7 +199,6 @@ sysmon/
 hw_probe/              硬體探測韌體：螢幕驅動程式、觸控晶片和腳位
 touch_diag/            XPT2046 觸控原始資料診斷
 touch_test/            觸控校正和繪圖測試；board.h 是驗證過的螢幕設定
-.superpowers/          設計階段的介面草圖
 docs/images/           README 圖片及其產生腳本
 docs/readme/           翻譯版 README
 ```
