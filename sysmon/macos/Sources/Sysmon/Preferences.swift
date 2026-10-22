@@ -28,6 +28,10 @@ final class Preferences: ObservableObject {
     @Published var ledEnabled: Bool {
         didSet { defaults.set(ledEnabled, forKey: "ledEnabled") }
     }
+    /// 界面语言；nil 表示跟随系统。只影响 Mac 端，板子上的文字始终是中文
+    @Published var language: AppLanguage? {
+        didSet { defaults.set(language?.rawValue, forKey: "language") }
+    }
     /// 当前页只由 Mac 端记录，rawValue 存字符串
     @Published var page: Page {
         didSet { defaults.set(page.rawValue, forKey: "page") }
@@ -49,6 +53,7 @@ final class Preferences: ObservableObject {
         pomodoroConfig = Self.load(defaults, "pomodoroConfig") ?? PomodoroConfig()
         healthConfig = Self.load(defaults, "healthConfig") ?? HealthConfig()
         ledEnabled = defaults.object(forKey: "ledEnabled") as? Bool ?? true
+        language = defaults.string(forKey: "language").flatMap(AppLanguage.init(rawValue:))
     }
 
     /// JSON 存储；nil 时删掉这一项
@@ -63,6 +68,11 @@ final class Preferences: ObservableObject {
     /// 读不到或数据损坏时返回 nil，由调用方用默认值
     private static func load<T: Decodable>(_ defaults: UserDefaults, _ key: String) -> T? {
         defaults.data(forKey: key).flatMap { try? JSONDecoder().decode(T.self, from: $0) }
+    }
+
+    /// 当前界面语言的文字表；跟随系统时按系统首选语言挑，都不支持就用英文
+    var strings: Strings {
+        Strings(language ?? resolveLanguage(preferred: Locale.preferredLanguages))
     }
 
     /// 参与轮换的页面，顺序固定 sys → pomo → cl → gpt

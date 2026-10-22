@@ -1,9 +1,10 @@
 import AppKit
+import SysmonCore
 
 /// 菜单栏图标：画成 ESP32-WROOM 模组的样子（顶部天线走线、中间金属屏蔽罩、两侧引脚）。
 /// 模板图，系统会按菜单栏的明暗自动着色；未连接时加一道斜杠。
 enum BoardIcon {
-    static func image(connected: Bool) -> NSImage {
+    static func image(connected: Bool, strings: Strings) -> NSImage {
         let image = NSImage(size: NSSize(width: 18, height: 18), flipped: true) { _ in
             NSColor.black.set()
 
@@ -48,7 +49,7 @@ enum BoardIcon {
             return true
         }
         image.isTemplate = true
-        image.accessibilityDescription = connected ? "Sysmon 已连接" : "Sysmon 未连接"
+        image.accessibilityDescription = strings[connected ? .iconConnected : .iconDisconnected]
         return image
     }
 }

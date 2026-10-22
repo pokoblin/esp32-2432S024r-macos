@@ -442,7 +442,7 @@ private let usageSnap = UsageSnapshot(
 @Test func settingsStatusText() {
     func ok(ageSeconds: TimeInterval) -> String {
         let snap = UsageSnapshot(fetchedAt: usageNow - ageSeconds)
-        return settingsStatus(UsageState(status: .ok, snapshot: snap), now: usageNow)
+        return settingsStatus(UsageState(status: .ok, snapshot: snap), now: usageNow, strings: Strings(.zhHans))
     }
     #expect(ok(ageSeconds: 0) == "正常 · 刚刚更新")
     #expect(ok(ageSeconds: 59) == "正常 · 刚刚更新")
@@ -455,11 +455,11 @@ private let usageSnap = UsageSnapshot(
     #expect(ok(ageSeconds: -30) == "正常 · 刚刚更新")
 
     let snap = usageSnap
-    #expect(settingsStatus(UsageState(status: .expired, snapshot: snap), now: usageNow) == "已过期")
-    #expect(settingsStatus(UsageState(status: .error, snapshot: snap), now: usageNow) == "读取失败")
-    #expect(settingsStatus(UsageState(), now: usageNow) == "未登录")
+    #expect(settingsStatus(UsageState(status: .expired, snapshot: snap), now: usageNow, strings: Strings(.zhHans)) == "已过期")
+    #expect(settingsStatus(UsageState(status: .error, snapshot: snap), now: usageNow, strings: Strings(.zhHans)) == "读取失败")
+    #expect(settingsStatus(UsageState(), now: usageNow, strings: Strings(.zhHans)) == "未登录")
     // ok 但没有快照（不应出现）→ 按读取失败处理
-    #expect(settingsStatus(UsageState(status: .ok, snapshot: nil), now: usageNow) == "读取失败")
+    #expect(settingsStatus(UsageState(status: .ok, snapshot: nil), now: usageNow, strings: Strings(.zhHans)) == "读取失败")
 }
 
 @Test func processOutputIsCaptured() {

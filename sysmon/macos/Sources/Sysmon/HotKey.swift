@@ -1,6 +1,7 @@
 import AppKit
 import Carbon.HIToolbox
 import SwiftUI
+import SysmonCore
 
 /// 一个全局快捷键：虚拟键码 + Carbon 修饰键掩码。display 是给人看的文字，例如 "⌃⌥S"。
 struct HotKeyCombo: Codable, Equatable {
@@ -129,15 +130,16 @@ final class HotKeyCenter {
 /// 只改绑定的值，注册和失败提示由使用方负责。
 struct HotKeyRecorder: View {
     @Binding var combo: HotKeyCombo?
+    let strings: Strings
     @State private var recording = false
     @State private var monitor = MonitorBox()
 
     var body: some View {
         HStack {
-            Button(recording ? "请按下组合键…（Esc 取消）" : (combo.map { "\($0.display)（点击更改）" } ?? "点击设置快捷键")) {
+            Button(recording ? strings[.hotkeyRecording] : (combo.map { strings(.hotkeyChange, $0.display) } ?? strings[.hotkeySet])) {
                 recording ? stop() : start()
             }
-            Button("清除") {
+            Button(strings[.hotkeyClear]) {
                 stop()
                 combo = nil
             }

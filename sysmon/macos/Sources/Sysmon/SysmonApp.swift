@@ -1,4 +1,5 @@
 import SwiftUI
+import SysmonCore
 
 @main
 struct SysmonApp: App {
@@ -6,46 +7,59 @@ struct SysmonApp: App {
 
     var body: some Scene {
         MenuBarExtra {
-            MenuContent(monitor: monitor, routine: monitor.routine)
+            MenuContent(monitor: monitor, routine: monitor.routine, preferences: monitor.preferences)
         } label: {
-            Image(nsImage: BoardIcon.image(connected: monitor.portPath != nil))
+            MenuBarLabel(monitor: monitor, preferences: monitor.preferences)
         }
 
         Settings {
             SettingsView(monitor: monitor, preferences: monitor.preferences, usage: monitor.usage)
         }
 
-        Window("关于 Sysmon", id: "about") {
-            AboutView()
+        Window("Sysmon", id: "about") {
+            AboutView(preferences: monitor.preferences)
         }
         .windowResizability(.contentSize)
     }
 }
 
-/// 菜单内容单独成视图：连接状态、番茄钟操作，然后是「设置…」和「退出」。
+/// 菜单栏图标：连接状态变了、语言变了都要重画
+struct MenuBarLabel: View {
+    @ObservedObject var monitor: MonitorController
+    @ObservedObject var preferences: Preferences
+
+    var body: some View {
+        Image(nsImage: BoardIcon.image(connected: monitor.portPath != nil, strings: preferences.strings))
+    }
+}
+
+/// 菜单内容单独成视图：连接状态、番茄钟操作，然后是「设置…」「关于」和「退出」。
 struct MenuContent: View {
     @ObservedObject var monitor: MonitorController
     @ObservedObject var routine: RoutineController
+    @ObservedObject var preferences: Preferences
     @Environment(\.openSettings) private var openSettings
     @Environment(\.openWindow) private var openWindow
 
+    private var s: Strings { preferences.strings }
+
     var body: some View {
-        Text(monitor.portPath.map { "已连接 \($0)" } ?? "未找到设备")
+        Text(monitor.portPath.map { s(.menuConnected, $0) } ?? s[.menuNoDevice])
         Divider()
         pomodoroButtons
         Divider()
         // 菜单栏程序没有 Dock 图标：每次点击都先激活 App 再打开设置，窗口才会成为 key 并在最前
         // （用 SettingsLink 的话菜单项上的手势不会触发，也就没法在点击时激活）
-        Button("设置…") {
+        Button(s[.menuSettings]) {
             forceActivate()
             openSettings()
         }
-        Button("关于 Sysmon") {
+        Button(s[.menuAbout]) {
             forceActivate()
             openWindow(id: "about")
         }
         Divider()
-        Button("退出") { NSApplication.shared.terminate(nil) }
+        Button(s[.menuQuit]) { NSApplication.shared.terminate(nil) }
             .keyboardShortcut("q")
     }
 }
@@ -55,16 +69,16 @@ extension MenuContent {
     @ViewBuilder private var pomodoroButtons: some View {
         let p = routine.routine.pomodoro
         if p.phase == .idle {
-            Button("开始专注") { routine.start() }
+            Button(s[.menuStartFocus]) { routine.start() }
         } else {
             if p.isRunning {
-                Button("暂停") { routine.pause() }
+                Button(s[.menuPause]) { routine.pause() }
             } else {
-                Button("继续") { routine.resume() }
+                Button(s[.menuResume]) { routine.resume() }
             }
-            Button("跳过") { routine.skip() }
+            Button(s[.menuSkip]) { routine.skip() }
         }
-        Button("重置轮次") { routine.resetRound() }
+        Button(s[.menuResetRound]) { routine.resetRound() }
     }
 }
 

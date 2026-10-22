@@ -9,16 +9,18 @@ struct SettingsView: View {
     @ObservedObject var usage: UsageController
     @AppStorage("settingsTab") private var tab = Tab.general
 
+    private var s: Strings { preferences.strings }
+
     enum Tab: String {
         case general, pomodoro, health, usage
     }
 
     var body: some View {
         TabView(selection: $tab) {
-            page(general).tabItem { Label("通用", systemImage: "gearshape") }.tag(Tab.general)
-            page(pomodoro).tabItem { Label("番茄钟", systemImage: "timer") }.tag(Tab.pomodoro)
-            page(health).tabItem { Label("健康提醒", systemImage: "figure.walk") }.tag(Tab.health)
-            page(usageTab).tabItem { Label("用量", systemImage: "chart.bar") }.tag(Tab.usage)
+            page(general).tabItem { Label(s[.tabGeneral], systemImage: "gearshape") }.tag(Tab.general)
+            page(pomodoro).tabItem { Label(s[.tabPomodoro], systemImage: "timer") }.tag(Tab.pomodoro)
+            page(health).tabItem { Label(s[.tabHealth], systemImage: "figure.walk") }.tag(Tab.health)
+            page(usageTab).tabItem { Label(s[.tabUsage], systemImage: "chart.bar") }.tag(Tab.usage)
         }
     }
 
@@ -31,26 +33,34 @@ struct SettingsView: View {
     }
 
     @ViewBuilder private var general: some View {
-        Section("切换副屏") {
-            LabeledContent("快捷键") {
+        Section(s[.generalSwitchScreen]) {
+            LabeledContent(s[.generalShortcut]) {
                 HotKeyRecorder(combo: Binding(
                     get: { preferences.hotKey },
                     set: { monitor.setHotKey($0) }
-                ))
+                ), strings: s)
             }
             hotKeyWarnings(failed: monitor.hotKeyFailed, conflict: monitor.pageHotKeyConflict)
-            Text("按下这个快捷键就切到下一屏，也可以直接点一下副屏")
+            Text(s[.generalSwitchHelp])
                 .foregroundStyle(.secondary)
         }
 
         Section {
-            Toggle("RGB 灯", isOn: $preferences.ledEnabled)
-            Text("提醒横幅出现时，板子背面的灯会跟着呼吸")
+            Toggle(s[.generalLed], isOn: $preferences.ledEnabled)
+            Text(s[.generalLedHelp])
                 .foregroundStyle(.secondary)
         }
 
         Section {
-            Toggle("开机时启动", isOn: Binding(
+            // 各语言用自己的写法列出，选完立刻生效
+            Picker(s[.generalLanguage], selection: $preferences.language) {
+                Text(s[.generalSystemLanguage]).tag(AppLanguage?.none)
+                Divider()
+                ForEach(AppLanguage.allCases, id: \.self) { lang in
+                    Text(lang.nativeName).tag(AppLanguage?.some(lang))
+                }
+            }
+            Toggle(s[.generalLaunchAtLogin], isOn: Binding(
                 get: { monitor.launchAtLogin },
                 set: { monitor.setLaunchAtLogin($0) }
             ))
@@ -59,72 +69,73 @@ struct SettingsView: View {
 
     @ViewBuilder private var pomodoro: some View {
         Section {
-            Toggle("番茄屏", isOn: Binding(
+            Toggle(s[.pomoScreen], isOn: Binding(
                 get: { preferences.pomodoroEnabled },
                 set: { monitor.setPomodoroEnabled($0) }
             ))
-            LabeledContent("开始 / 暂停快捷键") {
+            LabeledContent(s[.pomoShortcut]) {
                 HotKeyRecorder(combo: Binding(
                     get: { preferences.pomodoroHotKey },
                     set: { monitor.setPomodoroHotKey($0) }
-                ))
+                ), strings: s)
             }
             hotKeyWarnings(failed: monitor.pomodoroHotKeyFailed, conflict: monitor.pomodoroHotKeyConflict)
-            Text("没开始时按一下开始专注，走着时暂停，暂停时继续")
+            Text(s[.pomoShortcutHelp])
                 .foregroundStyle(.secondary)
         }
 
-        Section("时长") {
-            minutesStepper("专注", \.pomodoroConfig.focusMinutes, 5...90, unit: "分钟")
-            minutesStepper("短休", \.pomodoroConfig.shortBreakMinutes, 1...30, unit: "分钟")
-            minutesStepper("长休", \.pomodoroConfig.longBreakMinutes, 1...60, unit: "分钟")
-            minutesStepper("每轮", \.pomodoroConfig.rounds, 2...8, unit: "个")
-            Text("改了只影响下一段，正在走的这一段不变")
+        Section(s[.pomoDurations]) {
+            stepper(.pomoFocus, \.pomodoroConfig.focusMinutes, 5...90)
+            stepper(.pomoShort, \.pomodoroConfig.shortBreakMinutes, 1...30)
+            stepper(.pomoLong, \.pomodoroConfig.longBreakMinutes, 1...60)
+            stepper(.pomoRounds, \.pomodoroConfig.rounds, 2...8)
+            Text(s[.pomoDurationsHelp])
                 .foregroundStyle(.secondary)
         }
     }
 
     @ViewBuilder private var health: some View {
         Section {
-            Toggle("久坐提醒", isOn: configBinding(\.healthConfig.sitEnabled))
+            Toggle(s[.healthSit], isOn: configBinding(\.healthConfig.sitEnabled))
             if preferences.healthConfig.sitEnabled {
-                minutesStepper("每隔", \.healthConfig.sitMinutes, 10...180, unit: "分钟")
+                stepper(.healthEvery, \.healthConfig.sitMinutes, 10...180)
             }
         }
 
         Section {
-            Toggle("喝水提醒", isOn: configBinding(\.healthConfig.waterEnabled))
+            Toggle(s[.healthWater], isOn: configBinding(\.healthConfig.waterEnabled))
             if preferences.healthConfig.waterEnabled {
-                minutesStepper("每隔", \.healthConfig.waterMinutes, 10...180, unit: "分钟")
+                stepper(.healthEvery, \.healthConfig.waterMinutes, 10...180)
             }
         }
 
         Section {
-            Text("离开电脑 5 分钟就算起来过；专注时不打扰，休息时再提醒")
+            Text(s[.healthHelp])
                 .foregroundStyle(.secondary)
         }
     }
 
     @ViewBuilder private var usageTab: some View {
-        Section("用量屏") {
-            usageToggle("Claude 用量屏", .claude, isOn: preferences.claudeEnabled)
-            usageToggle("ChatGPT 用量屏", .chatgpt, isOn: preferences.chatgptEnabled)
+        Section(s[.usageSection]) {
+            usageToggle(s[.usageClaude], .claude, isOn: preferences.claudeEnabled)
+            usageToggle(s[.usageChatGPT], .chatgpt, isOn: preferences.chatgptEnabled)
         }
 
         Section {
-            Text("用量数据借用 Claude Code（终端里的 `claude`）和 Codex 的登录。Sysmon 只读，不会帮它们续期，所以不会把你登出。")
-            Text("代价是：一段时间没用它们，登录就会过期，副屏会停在最后一次的数字上并标成“已过期”。Claude 在终端里运行一次 `claude` 就能恢复；ChatGPT 打开一次 Codex 就能恢复。")
+            // 当成 Markdown 渲染，`claude` 显示成代码样式
+            Text(LocalizedStringKey(s[.usageSource]))
+            Text(LocalizedStringKey(s[.usageCost]))
         }
         .foregroundStyle(.secondary)
     }
 
     @ViewBuilder private func hotKeyWarnings(failed: Bool, conflict: Bool) -> some View {
         if failed {
-            Text("这个快捷键被占用了，换一个")
+            Text(s[.hotkeyTaken])
                 .foregroundStyle(.red)
         }
         if conflict {
-            Text("和另一个快捷键重复了，换一个")
+            Text(s[.hotkeyDuplicate])
                 .foregroundStyle(.red)
         }
     }
@@ -140,10 +151,11 @@ struct SettingsView: View {
         )
     }
 
-    private func minutesStepper(_ title: String, _ path: ReferenceWritableKeyPath<Preferences, Int>,
-                                _ range: ClosedRange<Int>, unit: String) -> some View {
+    /// 数字设置项：标签是带 %d 的整句，例如“专注 25 分钟”
+    private func stepper(_ label: L10nKey, _ path: ReferenceWritableKeyPath<Preferences, Int>,
+                         _ range: ClosedRange<Int>) -> some View {
         let value = configBinding(path)
-        return Stepper("\(title) \(value.wrappedValue) \(unit)", value: value, in: range)
+        return Stepper(s(label, value.wrappedValue), value: value, in: range)
     }
 
     private func usageToggle(_ title: String, _ service: UsageService, isOn: Bool) -> some View {
@@ -155,7 +167,7 @@ struct SettingsView: View {
             if isOn {
                 // 「N 分钟前更新」会随时间变化，每分钟重算一次
                 TimelineView(.everyMinute) { context in
-                    Text(settingsStatus(usage.states[service] ?? UsageState(), now: context.date))
+                    Text(settingsStatus(usage.states[service] ?? UsageState(), now: context.date, strings: s))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

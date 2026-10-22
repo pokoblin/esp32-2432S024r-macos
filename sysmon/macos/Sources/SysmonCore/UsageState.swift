@@ -75,24 +75,24 @@ public struct UsageSchedule: Sendable {
 }
 
 /// 设置窗口里每个服务开关下面的灰字状态。
-public func settingsStatus(_ state: UsageState, now: Date) -> String {
+public func settingsStatus(_ state: UsageState, now: Date, strings: Strings) -> String {
     switch state.status {
     case .ok:
-        guard let fetched = state.snapshot?.fetchedAt else { return "读取失败" }
-        return "正常 · \(ageText(now.timeIntervalSince(fetched)))更新"
-    case .expired: return "已过期"
-    case .error: return "读取失败"
-    case .missing: return "未登录"
+        guard let fetched = state.snapshot?.fetchedAt else { return strings[.statusError] }
+        return strings(.statusOk, ageText(now.timeIntervalSince(fetched), strings))
+    case .expired: return strings[.statusExpired]
+    case .error: return strings[.statusError]
+    case .missing: return strings[.statusMissing]
     }
 }
 
 /// 数据新鲜度：刚刚 / N 分钟前 / N 小时前 / N 天前。
-private func ageText(_ seconds: TimeInterval) -> String {
+private func ageText(_ seconds: TimeInterval, _ strings: Strings) -> String {
     let s = Int(min(max(0, seconds), Double(Int32.max)))
     switch s {
-    case ..<60: return "刚刚"
-    case ..<3600: return "\(s / 60) 分钟前"
-    case ..<86400: return "\(s / 3600) 小时前"
-    default: return "\(s / 86400) 天前"
+    case ..<60: return strings[.ageNow]
+    case ..<3600: return strings(.ageMinutes, s / 60)
+    case ..<86400: return strings(.ageHours, s / 3600)
+    default: return strings(.ageDays, s / 86400)
     }
 }
