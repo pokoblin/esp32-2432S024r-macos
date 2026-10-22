@@ -1,5 +1,5 @@
 // Mac 端发来的页面和用量行。
-//   页面：P <sys|cl|gpt> i=<n> n=<n>
+//   页面：P <sys|pomo|cl|gpt> i=<n> n=<n>
 //   用量：U svc=<cl|gpt> st=<ok|exp|err|none> [age=<秒>] [plan=<名>] [h5=<0-100|-1>] [h5r=<秒>]
 //         [wk=<0-100|-1>] [wkd=<1-7>] [wkt=<HHMM>] [md=<模型名>] [mw=<0-100|-1>]
 //         [op=<0-100|-1>] [so=<0-100|-1>]
@@ -9,7 +9,7 @@
 
 namespace sysmon {
 
-enum class Page { Sys, Claude, ChatGPT };
+enum class Page { Sys, Pomo, Claude, ChatGPT };
 
 struct PageInfo {
   Page page = Page::Sys;
@@ -40,7 +40,7 @@ struct Usage {
   int so = kAbsent;
 };
 
-// 页名不认识，或 i、n 缺失、不满足 1 <= i <= n <= 3 时返回 false；失败时 *out 不变。
+// 页名不认识，或 i、n 缺失、不满足 1 <= i <= n <= 4 时返回 false；失败时 *out 不变。
 bool parsePageLine(const char* line, PageInfo* out);
 
 // 缺 svc 或 st、值不认识、已知数字字段不是数字时返回 false；失败时 *out 不变。

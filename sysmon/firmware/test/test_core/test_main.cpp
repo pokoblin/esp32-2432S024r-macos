@@ -7,6 +7,7 @@
 #include "protocol.h"
 #include "screen_state.h"
 #include "tap.h"
+#include "timer_protocol.h"
 #include "tones.h"
 #include "usage_format.h"
 #include "usage_protocol.h"
@@ -231,7 +232,7 @@ static void test_parse_page_rejects_and_keeps_out() {
   TEST_ASSERT_FALSE(parsePageLine("P sys n=1", &p));        // 缺 i
   TEST_ASSERT_FALSE(parsePageLine("P sys i=1", &p));        // 缺 n
   TEST_ASSERT_FALSE(parsePageLine("P sys i=0 n=1", &p));
-  TEST_ASSERT_FALSE(parsePageLine("P sys i=1 n=4", &p));
+  TEST_ASSERT_FALSE(parsePageLine("P sys i=1 n=5", &p));
   TEST_ASSERT_FALSE(parsePageLine("P sys i=x n=1", &p));
   TEST_ASSERT_FALSE(parsePageLine("P sys i=1 n=1", nullptr));
   TEST_ASSERT_EQUAL(Page::ChatGPT, p.page);                  // 失败不改 out
@@ -432,6 +433,91 @@ static void test_tap_detector_millis_wrap() {
   TEST_ASSERT_TRUE(t.update(true, 0x00000100u));
 }
 
+// ---- 番茄 T / 横幅 B ----
+
+static void test_parse_page_pomo() {
+  PageInfo p;
+  TEST_ASSERT_TRUE(parsePageLine("P pomo i=2 n=4", &p));
+  TEST_ASSERT_EQUAL(Page::Pomo, p.page);
+  TEST_ASSERT_EQUAL(2, p.index);
+  TEST_ASSERT_EQUAL(4, p.count);
+  TEST_ASSERT_FALSE(parsePageLine("P sys i=1 n=5", &p));
+}
+static void test_parse_timer_line() {
+  Timer t;
+  TEST_ASSERT_TRUE(parseTimerLine("T st=focus run=1 rem=754 tot=1500 end=1452 rd=2 rn=4 dn=5 dm=125 key=1", &t));
+  TEST_ASSERT_TRUE(t.received);
+  TEST_ASSERT_EQUAL(Phase::Focus, t.phase);
+  TEST_ASSERT_TRUE(t.running);
+  TEST_ASSERT_EQUAL_INT32(754, t.rem);
+  TEST_ASSERT_EQUAL_INT32(1500, t.tot);
+  TEST_ASSERT_EQUAL(1452, t.end);
+  TEST_ASSERT_EQUAL(2, t.rd);
+  TEST_ASSERT_EQUAL(4, t.rn);
+  TEST_ASSERT_EQUAL(5, t.dn);
+  TEST_ASSERT_EQUAL(125, t.dm);
+  TEST_ASSERT_TRUE(t.key);
+}
+static void test_parse_timer_rejects_bad() {
+  Timer t;
+  t.rem = 42;
+  TEST_ASSERT_FALSE(parseTimerLine("T st=nap rem=1 tot=1", &t));
+  TEST_ASSERT_FALSE(parseTimerLine("T st=focus tot=1", &t));
+  TEST_ASSERT_FALSE(parseTimerLine("T st=focus rem=x tot=1", &t));
+  TEST_ASSERT_FALSE(parseTimerLine("U st=focus rem=1 tot=1", &t));
+  TEST_ASSERT_FALSE(parseTimerLine("T st=focus rem=1 tot=1", nullptr));
+  TEST_ASSERT_EQUAL_INT32(42, t.rem);
+  TEST_ASSERT_FALSE(t.received);
+}
+static void test_parse_timer_missing_end_is_absent() {
+  Timer t;
+  TEST_ASSERT_TRUE(parseTimerLine("T st=short run=0 rem=120 tot=300 rd=-3 rn=4 dn=0 dm=0 key=0 zz=9", &t));
+  TEST_ASSERT_EQUAL(Phase::Short, t.phase);
+  TEST_ASSERT_FALSE(t.running);
+  TEST_ASSERT_EQUAL(kAbsent, t.end);
+  TEST_ASSERT_EQUAL(0, t.rd);
+  TEST_ASSERT_FALSE(t.key);
+}
+static void test_parse_banner_lines() {
+  Banner b;
+  TEST_ASSERT_TRUE(parseBannerLine("B k=none", &b));
+  TEST_ASSERT_EQUAL(BannerKind::None, b.kind);
+  TEST_ASSERT_TRUE(parseBannerLine("B k=done xw=1 xs=1 led=1", &b));
+  TEST_ASSERT_EQUAL(BannerKind::FocusDone, b.kind);
+  TEST_ASSERT_TRUE(b.xw);
+  TEST_ASSERT_TRUE(b.xs);
+  TEST_ASSERT_TRUE(b.led);
+  TEST_ASSERT_TRUE(parseBannerLine("B k=sit min=52 led=0", &b));
+  TEST_ASSERT_EQUAL(BannerKind::Sit, b.kind);
+  TEST_ASSERT_EQUAL(52, b.min);
+  TEST_ASSERT_FALSE(b.led);
+  TEST_ASSERT_FALSE(b.xw);
+  TEST_ASSERT_TRUE(parseBannerLine("B k=brk led=1", &b));
+  TEST_ASSERT_EQUAL(BannerKind::BreakEnded, b.kind);
+  TEST_ASSERT_EQUAL(kAbsent, b.min);
+  TEST_ASSERT_TRUE(parseBannerLine("B k=water min=60 led=1", &b));
+  TEST_ASSERT_EQUAL(BannerKind::Water, b.kind);
+  TEST_ASSERT_FALSE(parseBannerLine("B k=zzz", &b));
+  TEST_ASSERT_FALSE(parseBannerLine("B led=1", &b));
+  TEST_ASSERT_EQUAL(BannerKind::Water, b.kind);
+}
+static void test_timer_remaining_counts_down_and_clamps() {
+  Timer t;
+  t.running = true;
+  t.rem = 3;
+  TEST_ASSERT_EQUAL_INT32(3, timerRemaining(t, 1000, 1999));
+  TEST_ASSERT_EQUAL_INT32(2, timerRemaining(t, 1000, 2000));
+  TEST_ASSERT_EQUAL_INT32(0, timerRemaining(t, 1000, 60000));
+  t.running = false;
+  TEST_ASSERT_EQUAL_INT32(3, timerRemaining(t, 1000, 60000));
+}
+static void test_timer_remaining_millis_wrap() {
+  Timer t;
+  t.running = true;
+  t.rem = 10;
+  TEST_ASSERT_EQUAL_INT32(8, timerRemaining(t, 0xFFFFF000u, 0xFFFFF000u + 2000));
+}
+
 int main(int, char**) {
   UNITY_BEGIN();
   RUN_TEST(test_parse_full_line);
@@ -473,5 +559,12 @@ int main(int, char**) {
   RUN_TEST(test_format_tiny_buffer);
   RUN_TEST(test_tap_detector);
   RUN_TEST(test_tap_detector_millis_wrap);
+  RUN_TEST(test_parse_page_pomo);
+  RUN_TEST(test_parse_timer_line);
+  RUN_TEST(test_parse_timer_rejects_bad);
+  RUN_TEST(test_parse_timer_missing_end_is_absent);
+  RUN_TEST(test_parse_banner_lines);
+  RUN_TEST(test_timer_remaining_counts_down_and_clamps);
+  RUN_TEST(test_timer_remaining_millis_wrap);
   return UNITY_END();
 }

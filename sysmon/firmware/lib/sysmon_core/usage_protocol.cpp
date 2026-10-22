@@ -9,34 +9,14 @@ namespace sysmon {
 namespace {
 
 using detail::clampPercent;
+using detail::clampSeconds;
+using detail::forEachField;
 using detail::keyIs;
 using detail::parseNumber;
-
-// 逐个遍历 [p, end) 里以空格分隔的 key=value；fn(key, keyLen, val, valEnd) 返回 false 就中止。
-// 没有 '=' 的记号忽略。
-template <typename Fn>
-bool forEachField(const char* p, Fn fn) {
-  while (*p) {
-    while (*p == ' ') ++p;
-    if (!*p) break;
-    const char* tokEnd = p;
-    while (*tokEnd && *tokEnd != ' ') ++tokEnd;
-    const char* eq = (const char*)memchr(p, '=', tokEnd - p);
-    if (eq && !fn(p, (size_t)(eq - p), eq + 1, tokEnd)) return false;
-    p = tokEnd;
-  }
-  return true;
-}
-
-bool valueIs(const char* val, const char* end, const char* name) {
-  return keyIs(val, (size_t)(end - val), name);
-}
+using detail::valueIs;
 
 // 百分比：-1 表示窗口已重置，其余限到 0..100。
 int percentOrReset(long long v) { return v == -1 ? kReset : clampPercent(v); }
-
-// 秒数：负数归零，超过 int32 的限幅。
-int32_t clampSeconds(long long v) { return v < 0 ? 0 : v > INT32_MAX ? INT32_MAX : (int32_t)v; }
 
 // 文字字段：截断到缓冲区大小，始终以 NUL 结尾。
 void copyText(const char* val, const char* end, char* dst, size_t size) {
@@ -58,6 +38,7 @@ bool parsePageLine(const char* line, PageInfo* out) {
 
   PageInfo info;
   if (valueIs(p, nameEnd, "sys")) info.page = Page::Sys;
+  else if (valueIs(p, nameEnd, "pomo")) info.page = Page::Pomo;
   else if (valueIs(p, nameEnd, "cl")) info.page = Page::Claude;
   else if (valueIs(p, nameEnd, "gpt")) info.page = Page::ChatGPT;
   else return false;
@@ -68,14 +49,14 @@ bool parsePageLine(const char* line, PageInfo* out) {
     if (!isI && !keyIs(key, keyLen, "n")) return true;
     long long v;
     if (!parseNumber(val, end, &v)) return false;
-    // 超出 1..3 的值直接判无效，不必精确保存
+    // 超出 1..4 的值直接判无效，不必精确保存
     int iv = v < 0 ? 0 : v > 99 ? 99 : (int)v;
     if (isI) { info.index = iv; haveI = true; }
     else { info.count = iv; haveN = true; }
     return true;
   });
   if (!ok || !haveI || !haveN) return false;
-  if (info.index < 1 || info.index > info.count || info.count > 3) return false;
+  if (info.index < 1 || info.index > info.count || info.count > 4) return false;
 
   *out = info;
   return true;

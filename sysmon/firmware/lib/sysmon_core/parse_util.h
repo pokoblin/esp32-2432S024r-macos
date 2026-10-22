@@ -1,4 +1,4 @@
-// protocol.cpp 和 usage_protocol.cpp 共用的小工具，只在 lib 内部使用。
+// protocol.cpp、usage_protocol.cpp、timer_protocol.cpp 共用的小工具，只在 lib 内部使用。
 #pragma once
 #include <ctype.h>
 #include <stddef.h>
@@ -34,6 +34,29 @@ inline int clampPercent(long long v) { return v < 0 ? 0 : v > 100 ? 100 : (int)v
 
 inline uint32_t clampU32(long long v) {
   return v < 0 ? 0 : v > 0xFFFFFFFFLL ? 0xFFFFFFFFu : (uint32_t)v;
+}
+
+// 秒数：负数归零，超过 int32 的限幅。
+inline int32_t clampSeconds(long long v) { return v < 0 ? 0 : v > INT32_MAX ? INT32_MAX : (int32_t)v; }
+
+inline bool valueIs(const char* val, const char* end, const char* name) {
+  return keyIs(val, (size_t)(end - val), name);
+}
+
+// 逐个遍历 [p, end) 里以空格分隔的 key=value；fn(key, keyLen, val, valEnd) 返回 false 就中止。
+// 没有 '=' 的记号忽略。
+template <typename Fn>
+bool forEachField(const char* p, Fn fn) {
+  while (*p) {
+    while (*p == ' ') ++p;
+    if (!*p) break;
+    const char* tokEnd = p;
+    while (*tokEnd && *tokEnd != ' ') ++tokEnd;
+    const char* eq = (const char*)memchr(p, '=', tokEnd - p);
+    if (eq && !fn(p, (size_t)(eq - p), eq + 1, tokEnd)) return false;
+    p = tokEnd;
+  }
+  return true;
 }
 
 }  // namespace detail
