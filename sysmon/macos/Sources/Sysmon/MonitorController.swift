@@ -11,8 +11,9 @@ final class MonitorController: ObservableObject {
     /// 全局快捷键注册失败（例如被别的程序占用），设置窗口据此提示
     @Published private(set) var hotKeyFailed = false
     @Published private(set) var pomodoroHotKeyFailed = false
-    /// 两个快捷键录成了同一个组合；后录的那个不生效
-    @Published private(set) var hotKeyConflict = false
+    /// 刚录的快捷键和另一个重复了，没有生效；设置里在对应的录制框下面提示
+    @Published private(set) var pageHotKeyConflict = false
+    @Published private(set) var pomodoroHotKeyConflict = false
     let preferences = Preferences()
     let usage: UsageController
     let routine: RoutineController
@@ -139,13 +140,15 @@ final class MonitorController: ObservableObject {
     }
 
     func setHotKey(_ combo: HotKeyCombo?) {
-        guard !conflicts(combo, preferences.pomodoroHotKey) else { return }
+        pageHotKeyConflict = conflicts(combo, preferences.pomodoroHotKey)
+        guard !pageHotKeyConflict else { return }
         preferences.hotKey = combo
         hotKeyFailed = !hotKey.register(combo)
     }
 
     func setPomodoroHotKey(_ combo: HotKeyCombo?) {
-        guard !conflicts(combo, preferences.hotKey) else { return }
+        pomodoroHotKeyConflict = conflicts(combo, preferences.hotKey)
+        guard !pomodoroHotKeyConflict else { return }
         preferences.pomodoroHotKey = combo
         pomodoroHotKeyFailed = !pomodoroHotKey.register(combo)
         sendRoutineLines()  // 底栏提示跟着有没有快捷键变
@@ -159,13 +162,12 @@ final class MonitorController: ObservableObject {
         send(pageLines())
     }
 
-    /// 和另一个快捷键撞了就记下来、不生效；不撞就清掉提示。
+    /// 和另一个快捷键是同一个组合；清除（nil）不算冲突。
     private func conflicts(_ combo: HotKeyCombo?, _ other: HotKeyCombo?) -> Bool {
-        hotKeyConflict = combo.map {
+        combo.map {
             hotKeyConflicts(keyCode: $0.keyCode, modifiers: $0.carbonModifiers,
                             otherKeyCode: other?.keyCode, otherModifiers: other?.carbonModifiers)
         } ?? false
-        return hotKeyConflict
     }
 
     /// 番茄状态或横幅变了：立刻发 T、B，不等下一个 2 秒。
