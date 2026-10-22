@@ -419,18 +419,6 @@ private func secondFocus() -> (Pomodoro, Date) {
     #expect(encodeBanner(Banner(kind: .breakEnded, minutes: nil, extras: []), led: true) == "B k=brk led=1\n")
 }
 
-@Test func menuStatusText() {
-    var (p, now) = secondFocus()
-    let stats = TodayStats(day: "2026-10-22", count: 5, focusSeconds: 7500)
-    #expect(pomodoroMenuStatus(p, stats: stats, now: now) == "番茄 · 专注 12:34（第 2/4 个）")
-    p.pause(now: now)
-    #expect(pomodoroMenuStatus(p, stats: stats, now: now) == "番茄 · 已暂停 12:34")
-    p.resume(now: now)
-    _ = p.advance(now: now + 754)
-    #expect(pomodoroMenuStatus(p, stats: stats, now: now + 755) == "番茄 · 短休 4:59")
-    #expect(pomodoroMenuStatus(Pomodoro(), stats: stats, now: now) == "番茄 · 今天 5 个")
-}
-
 // MARK: - 快捷键冲突
 
 @Test func hotKeyConflictDetection() {

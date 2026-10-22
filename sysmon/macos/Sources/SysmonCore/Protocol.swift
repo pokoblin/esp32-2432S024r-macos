@@ -58,16 +58,3 @@ public func encodeBanner(_ b: Banner?, led: Bool) -> String {
     if b.extras.contains(.sit) { line += " xs=1" }
     return line + " led=\(led ? 1 : 0)\n"
 }
-
-/// 菜单里的一行状态，例如“番茄 · 专注 12:34（第 2/4 个）”；空闲时写今天的个数。
-public func pomodoroMenuStatus(_ p: Pomodoro, stats: TodayStats, now: Date) -> String {
-    let rem = p.remaining(now: now)
-    let clock = "\(rem / 60):" + String(format: "%02d", rem % 60)
-    switch p.phase {
-    case .idle: return "番茄 · 今天 \(stats.count) 个"
-    case _ where !p.isRunning: return "番茄 · 已暂停 \(clock)"
-    case .focus: return "番茄 · 专注 \(clock)（第 \(p.round)/\(p.config.rounds) 个）"
-    case .short: return "番茄 · 短休 \(clock)"
-    case .long: return "番茄 · 长休 \(clock)"
-    }
-}

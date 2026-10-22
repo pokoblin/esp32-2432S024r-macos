@@ -64,10 +64,6 @@ final class RoutineController: ObservableObject {
         encodeBanner(routine.banner, led: preferences.ledEnabled)
     }
 
-    func menuStatus(now: Date) -> String {
-        pomodoroMenuStatus(routine.pomodoro, stats: routine.stats, now: now)
-    }
-
     private func act(_ change: (inout Routine) -> Void) {
         change(&routine)
         onChange?()

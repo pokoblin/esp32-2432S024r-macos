@@ -17,7 +17,7 @@ struct SysmonApp: App {
     }
 }
 
-/// 菜单内容单独成视图：连接状态、番茄钟，然后是「设置…」和「退出」。
+/// 菜单内容单独成视图：连接状态、番茄钟操作，然后是「设置…」和「退出」。
 struct MenuContent: View {
     @ObservedObject var monitor: MonitorController
     @ObservedObject var routine: RoutineController
@@ -26,8 +26,6 @@ struct MenuContent: View {
     var body: some View {
         Text(monitor.portPath.map { "已连接 \($0)" } ?? "未找到设备")
         Divider()
-        // routine 每 2 秒发布一次，菜单开着时这一行也跟着走
-        Text(routine.menuStatus(now: Date()))
         pomodoroButtons
         Divider()
         // 菜单栏程序没有 Dock 图标：每次点击都先激活 App 再打开设置，窗口才会成为 key 并在最前
