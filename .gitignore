@@ -5,3 +5,4 @@ backup/
 .superpowers/
 sysmon/macos/.build/
 sysmon/macos/build/
+dist/

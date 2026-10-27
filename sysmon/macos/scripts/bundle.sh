@@ -4,12 +4,14 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-swift build -c release
+# 通用二进制：Apple 芯片和 Intel Mac 都能跑（最低 macOS 14）
+ARCHS=(--arch arm64 --arch x86_64)
+swift build -c release "${ARCHS[@]}"
 
 APP=build/Sysmon.app
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-cp "$(swift build -c release --show-bin-path)/Sysmon" "$APP/Contents/MacOS/Sysmon"
+cp "$(swift build -c release "${ARCHS[@]}" --show-bin-path)/Sysmon" "$APP/Contents/MacOS/Sysmon"
 # 图标由 scripts/make_icon.sh 从 AppIcon.icon 编译：Assets.car 给 macOS 26 起的 Liquid Glass 图标，icns 给旧系统
 cp Resources/Assets.car Resources/AppIcon.icns "$APP/Contents/Resources/"
 
